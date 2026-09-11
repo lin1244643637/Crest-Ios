@@ -162,27 +162,138 @@ private struct AnimatedLoginBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var startedAt = Date()
+    @State private var seed = Int.random(in: 0..<1_000_000)
 
     var body: some View {
         TimelineView(.animation(
             minimumInterval: 1.0 / 60,
             paused: reduceMotion || scenePhase != .active
         )) { timeline in
-            let time = reduceMotion ? 4 : timeline.date.timeIntervalSince(startedAt)
+            let time = reduceMotion ? 0 : max(0, timeline.date.timeIntervalSince(startedAt))
 
-            Rectangle()
-                .fill(.black)
-                .visualEffect { content, geometry in
-                    content.colorEffect(
-                        ShaderLibrary.monochromeFlow(
-                            .float2(geometry.size),
-                            .float(time)
-                        )
-                    )
+            Canvas(opaque: true, rendersAsynchronously: true) { context, size in
+                let bounds = Path(CGRect(origin: .zero, size: size))
+                context.fill(bounds, with: .color(.black))
+
+                for index in 0..<4 {
+                    drawRibbon(index, time: time, context: context, size: size)
                 }
+
+                context.fill(
+                    bounds,
+                    with: .linearGradient(
+                        Gradient(stops: [
+                            .init(color: .black.opacity(0.24), location: 0),
+                            .init(color: .clear, location: 0.2),
+                            .init(color: .clear, location: 0.48),
+                            .init(color: .black.opacity(0.66), location: 1)
+                        ]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: 0, y: size.height)
+                    )
+                )
+            }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    private func drawRibbon(_ index: Int, time: Double, context: GraphicsContext, size: CGSize) {
+        let channel = index * 11
+        let lane = 0.14 + CGFloat(index) * 0.25
+        let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
+        let shortSide = min(size.width, size.height)
+        let widths: [CGFloat] = [0.50, 0.34, 0.24, 0.15]
+        let width = shortSide * widths[index] * (1 + drift(time, channel: channel + 8) * 0.18)
+
+        var path = Path()
+        path.move(to: CGPoint(
+            x: size.width * (lane + drift(time, channel: channel) * 0.44),
+            y: size.height * -0.35
+        ))
+        path.addCurve(
+            to: CGPoint(
+                x: size.width * (1 - lane + drift(time, channel: channel + 1) * 0.55),
+                y: size.height * 1.35
+            ),
+            control1: CGPoint(
+                x: size.width * (lane + direction * 0.65 + drift(time, channel: channel + 2) * 0.75),
+                y: size.height * (0.18 + drift(time, channel: channel + 3) * 0.16)
+            ),
+            control2: CGPoint(
+                x: size.width * (1 - lane - direction * 0.65 + drift(time, channel: channel + 4) * 0.75),
+                y: size.height * (0.72 + drift(time, channel: channel + 5) * 0.20)
+            )
+        )
+
+        let lightPosition = drift(time, channel: channel + 6)
+        let intensity = 0.80 + Double(drift(time, channel: channel + 7)) * 0.16
+        let start = CGPoint(x: size.width * (-0.2 + lightPosition * 0.35), y: size.height * -0.1)
+        let end = CGPoint(x: size.width * (1.1 + lightPosition * 0.25), y: size.height * 1.05)
+        let surface = Gradient(stops: [
+            .init(color: .clear, location: 0),
+            .init(color: .white.opacity(0.12), location: 0.18),
+            .init(color: .white.opacity(intensity * 0.64), location: 0.35),
+            .init(color: .white.opacity(intensity), location: 0.48),
+            .init(color: Color(white: 0.12).opacity(0.88), location: 0.65),
+            .init(color: .white.opacity(0.22), location: 0.83),
+            .init(color: .clear, location: 1)
+        ])
+
+        context.drawLayer { glow in
+            glow.blendMode = .screen
+            glow.opacity = 0.42
+            glow.addFilter(.blur(radius: shortSide * 0.075))
+            glow.stroke(
+                path,
+                with: .linearGradient(surface, startPoint: start, endPoint: end),
+                style: StrokeStyle(lineWidth: width * 1.25, lineCap: .round)
+            )
+        }
+
+        context.drawLayer { ribbon in
+            ribbon.addFilter(.blur(radius: shortSide * (index == 0 ? 0.022 : 0.012)))
+            ribbon.stroke(
+                path,
+                with: .linearGradient(surface, startPoint: start, endPoint: end),
+                style: StrokeStyle(lineWidth: width, lineCap: .round)
+            )
+        }
+
+        context.drawLayer { reflection in
+            reflection.blendMode = .screen
+            reflection.addFilter(.blur(radius: shortSide * 0.024))
+            reflection.stroke(
+                path,
+                with: .linearGradient(
+                    Gradient(stops: [
+                        .init(color: .clear, location: 0.1),
+                        .init(color: .white.opacity(intensity * 0.50), location: 0.43),
+                        .init(color: .white.opacity(intensity * 0.72), location: 0.52),
+                        .init(color: .clear, location: 0.74)
+                    ]),
+                    startPoint: start,
+                    endPoint: end
+                ),
+                style: StrokeStyle(lineWidth: width * 0.26, lineCap: .round)
+            )
+        }
+    }
+
+    // Independent schedules and quintic interpolation keep random targets smooth.
+    private func drift(_ time: Double, channel: Int) -> CGFloat {
+        let position = time / (9 + Double(channel % 7) * 1.3) + Double(channel) * 0.37
+        let step = Int(floor(position))
+        let fraction = position - floor(position)
+        let eased = fraction * fraction * fraction * (fraction * (fraction * 6 - 15) + 10)
+        let from = randomUnit(step: step, channel: channel)
+        let to = randomUnit(step: step + 1, channel: channel)
+        return CGFloat((from + (to - from) * eased) * 2 - 1)
+    }
+
+    private func randomUnit(step: Int, channel: Int) -> Double {
+        let value = sin(Double(seed + step * 1013 + channel * 7919) * 12.9898) * 43758.5453
+        return value - floor(value)
     }
 }
 
