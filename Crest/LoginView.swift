@@ -18,8 +18,8 @@ struct LoginView: View {
 
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    Text("Crest")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    Text("")
+                        .font(.system(size: 24, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.9))
 
                     Spacer()
@@ -52,12 +52,15 @@ struct LoginView: View {
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.76)
                                 .shadow(color: .white.opacity(0.28), radius: 24)
+                                .frame(maxWidth: .infinity, alignment: .leading)
 
-                            Text("沉浸式智能助理，即刻进入对话。")
+                            Text("纷繁之上洞察经营")
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.white.opacity(0.78))
                                 .multilineTextAlignment(.leading)
                                 .shadow(color: .black.opacity(0.42), radius: 14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top,-14)
                             field(systemImage: "person") {
                                 TextField("用户名", text: $username, prompt: Text("请输入手机号").foregroundStyle(.white.opacity(0.48)))
                                     .textInputAutocapitalization(.never)
@@ -199,35 +202,77 @@ private struct AnimatedLoginBackground: View {
     }
 
     private func drawRibbon(_ index: Int, time: Double, context: GraphicsContext, size: CGSize) {
-        let channel = index * 11
-        let lane = 0.14 + CGFloat(index) * 0.25
+        let channel = index * 100
+        let lane: CGFloat = [-0.08, 0.62, 1.02, 0.28][index]
         let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
         let shortSide = min(size.width, size.height)
-        let widths: [CGFloat] = [0.50, 0.34, 0.24, 0.15]
+        let widths: [CGFloat] = [0.56, 0.38, 0.29, 0.19]
         let width = shortSide * widths[index] * (1 + drift(time, channel: channel + 8) * 0.18)
 
-        var path = Path()
-        path.move(to: CGPoint(
+        let p0 = CGPoint(
             x: size.width * (lane + drift(time, channel: channel) * 0.44),
             y: size.height * -0.35
-        ))
-        path.addCurve(
-            to: CGPoint(
-                x: size.width * (1 - lane + drift(time, channel: channel + 1) * 0.55),
-                y: size.height * 1.35
-            ),
-            control1: CGPoint(
-                x: size.width * (lane + direction * 0.65 + drift(time, channel: channel + 2) * 0.75),
-                y: size.height * (0.18 + drift(time, channel: channel + 3) * 0.16)
-            ),
-            control2: CGPoint(
-                x: size.width * (1 - lane - direction * 0.65 + drift(time, channel: channel + 4) * 0.75),
-                y: size.height * (0.72 + drift(time, channel: channel + 5) * 0.20)
-            )
+        )
+        let p1 = CGPoint(
+            x: size.width * (lane + direction * 0.65 + drift(time, channel: channel + 2) * 0.75),
+            y: size.height * (0.18 + drift(time, channel: channel + 3) * 0.16)
+        )
+        let p2 = CGPoint(
+            x: size.width * (1 - lane - direction * 0.65 + drift(time, channel: channel + 4) * 0.75),
+            y: size.height * (0.72 + drift(time, channel: channel + 5) * 0.20)
+        )
+        let p3 = CGPoint(
+            x: size.width * (1 - lane + drift(time, channel: channel + 1) * 0.55),
+            y: size.height * 1.35
         )
 
+        var samples: [(center: CGPoint, normal: CGPoint, width: CGFloat, bias: CGFloat, scatter: CGFloat)] = []
+        for step in 0...80 {
+            let t = CGFloat(step) / 80
+            let u = 1 - t
+            let along = Double(t) + time * 0.012
+            let bend = variation(along * 4.3, time: time, channel: channel + 12)
+            let detail = variation(along * 10.7, time: time, channel: channel + 25)
+            let breadth = variation(along * 5.1, time: time, channel: channel + 40)
+            let bias = variation(along * 7.4, time: time, channel: channel + 55)
+            let scatter = variation(along * 3.8, time: time, channel: channel + 70)
+            let dx = 3 * u * u * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * t * t * (p3.x - p2.x)
+            let dy = 3 * u * u * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * t * t * (p3.y - p2.y)
+            let length = max(hypot(dx, dy), 1)
+            let normal = CGPoint(x: dy / length, y: -dx / length)
+            let displacement = shortSide * (bend * 0.23 + detail * 0.045)
+            let center = CGPoint(
+                x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x + normal.x * displacement,
+                y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y + normal.y * displacement
+            )
+            let localWidth = width * (0.16 + pow((breadth + 1) * 0.5, 1.6) * 1.4)
+            samples.append((center, normal, localWidth, bias, scatter))
+        }
+
+        // Independent edges and a displaced outer contour let light feather into shadow.
+        func contour(scale: CGFloat, dispersion: CGFloat, offset: CGFloat = 0) -> Path {
+            var path = Path()
+            for side in [CGFloat(1), -1] {
+                for step in samples.indices {
+                    let sample = samples[side > 0 ? step : samples.count - 1 - step]
+                    let spread = shortSide * dispersion
+                    let radius = sample.width * scale * (0.5 + side * sample.bias * 0.24)
+                        + spread * (0.65 + sample.scatter * side * 0.35)
+                    let distance = side * radius + sample.width * offset + spread * sample.scatter
+                    let point = CGPoint(
+                        x: sample.center.x + sample.normal.x * distance,
+                        y: sample.center.y + sample.normal.y * distance
+                    )
+                    if side > 0 && step == 0 { path.move(to: point) }
+                    else { path.addLine(to: point) }
+                }
+            }
+            path.closeSubpath()
+            return path
+        }
+
         let lightPosition = drift(time, channel: channel + 6)
-        let intensity = 0.80 + Double(drift(time, channel: channel + 7)) * 0.16
+        let intensity = 0.72 + Double(drift(time, channel: channel + 7)) * 0.16
         let start = CGPoint(x: size.width * (-0.2 + lightPosition * 0.35), y: size.height * -0.1)
         let end = CGPoint(x: size.width * (1.1 + lightPosition * 0.25), y: size.height * 1.05)
         let surface = Gradient(stops: [
@@ -242,29 +287,27 @@ private struct AnimatedLoginBackground: View {
 
         context.drawLayer { glow in
             glow.blendMode = .screen
-            glow.opacity = 0.42
-            glow.addFilter(.blur(radius: shortSide * 0.075))
-            glow.stroke(
-                path,
-                with: .linearGradient(surface, startPoint: start, endPoint: end),
-                style: StrokeStyle(lineWidth: width * 1.25, lineCap: .round)
+            glow.opacity = 0.62
+            glow.addFilter(.blur(radius: shortSide * 0.14))
+            glow.fill(
+                contour(scale: 1.5, dispersion: 0.20),
+                with: .linearGradient(surface, startPoint: start, endPoint: end)
             )
         }
 
         context.drawLayer { ribbon in
-            ribbon.addFilter(.blur(radius: shortSide * (index == 0 ? 0.022 : 0.012)))
-            ribbon.stroke(
-                path,
-                with: .linearGradient(surface, startPoint: start, endPoint: end),
-                style: StrokeStyle(lineWidth: width, lineCap: .round)
+            ribbon.addFilter(.blur(radius: shortSide * (index == 0 ? 0.045 : 0.028)))
+            ribbon.fill(
+                contour(scale: 1, dispersion: 0),
+                with: .linearGradient(surface, startPoint: start, endPoint: end)
             )
         }
 
         context.drawLayer { reflection in
             reflection.blendMode = .screen
-            reflection.addFilter(.blur(radius: shortSide * 0.024))
-            reflection.stroke(
-                path,
+            reflection.addFilter(.blur(radius: shortSide * 0.035))
+            reflection.fill(
+                contour(scale: 0.24, dispersion: 0.025, offset: -0.20),
                 with: .linearGradient(
                     Gradient(stops: [
                         .init(color: .clear, location: 0.1),
@@ -274,10 +317,18 @@ private struct AnimatedLoginBackground: View {
                     ]),
                     startPoint: start,
                     endPoint: end
-                ),
-                style: StrokeStyle(lineWidth: width * 0.26, lineCap: .round)
+                )
             )
         }
+    }
+
+    private func variation(_ position: Double, time: Double, channel: Int) -> CGFloat {
+        let step = Int(floor(position))
+        let fraction = position - floor(position)
+        let eased = CGFloat(fraction * fraction * (3 - 2 * fraction))
+        let from = drift(time, channel: channel + step)
+        let to = drift(time, channel: channel + step + 1)
+        return from + (to - from) * eased
     }
 
     // Independent schedules and quintic interpolation keep random targets smooth.
