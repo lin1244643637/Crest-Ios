@@ -14,8 +14,17 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    func signIn(username: String, password: String) async throws {
-        let response = try await api.login(username: username, password: password)
+    func signIn(phone: String, password: String) async throws {
+        let response = try await api.login(phone: phone, password: password)
+        apply(response)
+    }
+
+    func signInWithCode(verificationToken: String) async throws {
+        let response = try await api.loginWithCode(verificationToken: verificationToken)
+        apply(response)
+    }
+
+    private func apply(_ response: LoginResponse) {
         keychain.saveToken(response.token)
         self.username = response.username
         isSignedIn = true

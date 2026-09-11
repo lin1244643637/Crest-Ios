@@ -2,13 +2,67 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject private var session: SessionStore
-    @State private var username = ""
-    @State private var password = ""
-    @State private var errorMessage: String?
-    @State private var isLoading = false
 
-    private var canSubmit: Bool {
-        !isLoading && !username.isEmpty && !password.isEmpty
+    private enum AuthStep: Hashable {
+        case phone
+        case password
+        case verification
+        case resetPassword
+    }
+
+    private enum FocusField: Hashable {
+        case phone
+        case password
+        case verificationCode
+        case newPassword
+        case confirmPassword
+    }
+
+    private struct AuthNotice: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+    }
+
+    private let api = APIClient()
+    private let countryCode = "+86"
+
+    @State private var step: AuthStep = .phone
+    @State private var verificationPurpose: PhoneVerificationPurpose = .login
+    @State private var phone = ""
+    @State private var password = ""
+    @State private var verificationCode = ""
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var resetToken = ""
+    @State private var isPasswordVisible = false
+    @State private var isNewPasswordVisible = false
+    @State private var isConfirmPasswordVisible = false
+    @State private var isLoading = false
+    @State private var isSendingCode = false
+    @State private var isVerifying = false
+    @AppStorage("auth.sms.phone") private var storedVerificationPhone = ""
+    @AppStorage("auth.sms.purpose") private var storedVerificationPurpose = ""
+    @AppStorage("auth.sms.challengeID") private var storedVerificationChallengeID = ""
+    @AppStorage("auth.sms.resendAvailableAt") private var storedResendAvailableAt = 0.0
+    @State private var notice: AuthNotice?
+    @State private var shouldReturnAfterNotice = false
+    @FocusState private var focusedField: FocusField?
+
+    private var canContinueWithPhone: Bool {
+        !isLoading && phone.count == 11
+    }
+
+    private var canSubmitPassword: Bool {
+        !isLoading && !password.isEmpty
+    }
+
+    private var canSubmitReset: Bool {
+        !isLoading && !resetToken.isEmpty && !newPassword.isEmpty && !confirmPassword.isEmpty
+    }
+
+    private var resendAvailableAt: Date {
+        Date(timeIntervalSince1970: storedResendAvailableAt)
     }
 
     var body: some View {
@@ -17,146 +71,729 @@ struct LoginView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    Text("")
-                        .font(.system(size: 24, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.9))
-
-                    Spacer()
-
-                    Button("Login") {
-                        Task { await submit() }
+                Group {
+                    if step == .phone {
+                        Color.clear
+                            .frame(height: 44)
+                    } else {
+                        authTopBar
                     }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(minWidth: 76, minHeight: 44)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(.white.opacity(0.28), lineWidth: 1)
-                    }
-                    .disabled(!canSubmit)
                 }
                 .padding(.top, 12)
 
                 Spacer(minLength: 0)
 
-                VStack(spacing: 30) {
-
-                    VStack(alignment: .leading, spacing: 16) {
-                        VStack(spacing: 12) {
-                            Text("Crest")
-                                .font(.system(size: 42, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.76)
-                                .shadow(color: .white.opacity(0.28), radius: 24)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            Text("纷繁之上洞察经营")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.white.opacity(0.78))
-                                .multilineTextAlignment(.leading)
-                                .shadow(color: .black.opacity(0.42), radius: 14)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.top,-14)
-                            field(systemImage: "person") {
-                                TextField("用户名", text: $username, prompt: Text("请输入手机号").foregroundStyle(.white.opacity(0.48)))
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .textContentType(.username)
-                                    .submitLabel(.next)
-                                    .foregroundStyle(.white)
-                            }
-
-                            field(systemImage: "lock") {
-                                SecureField("密码", text: $password, prompt: Text("请输入密码").foregroundStyle(.white.opacity(0.48)))
-                                    .textContentType(.password)
-                                    .submitLabel(.go)
-                                    .foregroundStyle(.white)
-                                    .onSubmit {
-                                        Task { await submit() }
-                                    }
-                            }
-                        }
-
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(.footnote.weight(.medium))
-                                .foregroundStyle(Color(red: 1, green: 0.42, blue: 0.36))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-
-                        Button {
-                            Task { await submit() }
-                        } label: {
-                            HStack(spacing: 10) {
-                                if isLoading {
-                                    ProgressView()
-                                        .tint(.white)
-                                }
-
-                                Text(isLoading ? "登录中" : "Get Started")
-                                    .font(.headline.weight(.semibold))
-                            }
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 54)
-                            .background(Color.white.opacity(canSubmit ? 0.18 : 0.1), in: Capsule())
-                            .overlay {
-                                Capsule()
-                                    .stroke(.white.opacity(canSubmit ? 0.34 : 0.14), lineWidth: 1)
-                            }
-                            .shadow(color: Color(red: 0.14, green: 0.35, blue: 1).opacity(canSubmit ? 0.32 : 0), radius: 28, x: 0, y: 16)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!canSubmit)
-                    }
+                panelContent
+                    .id(step)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .padding(20)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                            .stroke(.white.opacity(0.18), lineWidth: 1)
                     }
-                    .shadow(color: .black.opacity(0.3), radius: 34, x: 0, y: 22)
-
-                }
-                .padding(.bottom, 22)
+                    .shadow(color: .black.opacity(0.28), radius: 30, x: 0, y: 20)
+                    .animation(.easeInOut(duration: 0.28), value: step)
+                    .padding(.bottom, 22)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 18)
         }
         .tint(.white)
+        .alert(item: $notice) { notice in
+            Alert(
+                title: Text(notice.title),
+                message: Text(notice.message),
+                dismissButton: .default(Text("好")) {
+                    if shouldReturnAfterNotice {
+                        shouldReturnAfterNotice = false
+                        goBack()
+                    }
+                }
+            )
+        }
+        .onAppear {
+            focus(after: .phone)
+        }
+        .onChange(of: step) { _, newStep in
+            focus(after: newStep)
+        }
+        .onChange(of: phone) { _, value in
+            let digits = normalizedPhone(value)
+            if digits != value {
+                phone = digits
+            }
+        }
+        .onChange(of: verificationCode) { _, value in
+            let digits = String(value.filter { $0.isNumber }.prefix(6))
+            if digits != value {
+                verificationCode = digits
+                return
+            }
+            if digits.count == 6 && !isSendingCode && !isVerifying {
+                Task { await verifyCode() }
+            }
+        }
     }
 
-    private func field<Content: View>(systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+    private var authTopBar: some View {
         HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.74))
-                .frame(width: 22)
+            Button(action: goBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay {
+                        Circle()
+                            .stroke(.white.opacity(0.22), lineWidth: 1)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("返回")
 
+            Spacer()
+
+            Text(stepLabel)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.62))
+                .monospacedDigit()
+        }
+        .frame(height: 44)
+        .padding(.horizontal, 4)
+    }
+
+    @ViewBuilder
+    private var panelContent: some View {
+        switch step {
+        case .phone:
+            phonePanel
+        case .password:
+            passwordPanel
+        case .verification:
+            verificationPanel
+        case .resetPassword:
+            resetPasswordPanel
+        }
+    }
+
+    private var phonePanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Crest")
+                .font(.system(size: 42, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .shadow(color: .white.opacity(0.26), radius: 24)
+
+            Text("纷繁之上，洞察经营")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.72))
+                .padding(.top, 8)
+                .padding(.bottom, 26)
+
+            inputField {
+                HStack(spacing: 10) {
+                    Text(countryCode)
+                        .foregroundStyle(.white.opacity(0.72))
+
+                    Rectangle()
+                        .fill(.white.opacity(0.18))
+                        .frame(width: 1, height: 20)
+
+                    TextField(
+                        "手机号",
+                        text: $phone,
+                        prompt: Text("请输入手机号").foregroundStyle(.white.opacity(0.48))
+                    )
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .submitLabel(.continue)
+                    .foregroundStyle(.white)
+                    .focused($focusedField, equals: .phone)
+                    .onSubmit {
+                        Task { await continueWithPhone() }
+                    }
+                }
+            }
+
+            primaryButton(
+                title: isLoading ? "识别中" : "Get start",
+                isLoading: isLoading,
+                isEnabled: canContinueWithPhone
+            ) {
+                Task { await continueWithPhone() }
+            }
+            .padding(.top, 14)
+        }
+    }
+
+    private var passwordPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(title: "欢迎回来", copy: formattedPhone)
+
+            passwordInput(
+                label: "密码",
+                prompt: "请输入密码",
+                text: $password,
+                isVisible: $isPasswordVisible,
+                focus: .password,
+                isNewPassword: false
+            ) {
+                Task { await submitPassword() }
+            }
+
+            HStack {
+                Button("验证码登录") {
+                    Task { await beginVerification(.login) }
+                }
+                .disabled(isSendingCode)
+
+                Spacer()
+
+                Button("忘记密码") {
+                    Task { await beginVerification(.resetPassword) }
+                }
+                .disabled(isSendingCode)
+            }
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.white.opacity(0.68))
+            .frame(minHeight: 44)
+            .padding(.horizontal, 3)
+
+            primaryButton(
+                title: isLoading ? "登录中" : "登录",
+                isLoading: isLoading,
+                isEnabled: canSubmitPassword
+            ) {
+                Task { await submitPassword() }
+            }
+        }
+    }
+
+    private var verificationPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(title: verificationTitle, copy: verificationCopy)
+
+            verificationCodeInput
+
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let remaining = max(0, Int(ceil(resendAvailableAt.timeIntervalSince(context.date))))
+
+                Button {
+                    Task {
+                        if await sendVerificationCode() {
+                            await verifyCode()
+                        }
+                    }
+                } label: {
+                    Group {
+                        if isVerifying {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white.opacity(0.72))
+                        } else {
+                            Text(remaining > 0 ? "\(remaining)s 后可重新发送" : "重新发送验证码")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                }
+                .buttonStyle(.plain)
+                .font(.footnote.weight(remaining > 0 ? .regular : .semibold))
+                .foregroundStyle(.white.opacity(remaining > 0 ? 0.58 : 1))
+                .disabled(remaining > 0 || isSendingCode || isVerifying)
+            }
+        }
+    }
+
+    private var resetPasswordPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(title: "设置新密码", copy: "使用新的密码保护你的账号")
+
+            passwordInput(
+                label: "新密码",
+                prompt: "请输入新密码",
+                text: $newPassword,
+                isVisible: $isNewPasswordVisible,
+                focus: .newPassword,
+                isNewPassword: true
+            ) {
+                focusedField = .confirmPassword
+            }
+
+            passwordInput(
+                label: "再次输入新密码",
+                prompt: "请再次输入新密码",
+                text: $confirmPassword,
+                isVisible: $isConfirmPasswordVisible,
+                focus: .confirmPassword,
+                isNewPassword: true
+            ) {
+                Task { await submitResetPassword() }
+            }
+            .padding(.top, 12)
+
+            primaryButton(
+                title: isLoading ? "提交中" : "确认",
+                isLoading: isLoading,
+                isEnabled: canSubmitReset
+            ) {
+                Task { await submitResetPassword() }
+            }
+            .padding(.top, 16)
+        }
+    }
+
+    private var verificationCodeInput: some View {
+        ZStack {
+            TextField("验证码", text: $verificationCode)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .focused($focusedField, equals: .verificationCode)
+                .foregroundStyle(.clear)
+                .tint(.clear)
+                .opacity(0.02)
+                .frame(height: 54)
+                .disabled(isVerifying)
+                .accessibilityLabel("六位验证码")
+
+            HStack(spacing: 8) {
+                ForEach(0..<6, id: \.self) { index in
+                    let characters = Array(verificationCode)
+                    let isActive = min(characters.count, 5) == index
+
+                    Text(index < characters.count ? String(characters[index]) : "")
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(.white.opacity(isActive ? 0.72 : 0.18), lineWidth: 1)
+                        }
+                        .shadow(color: .white.opacity(isActive ? 0.09 : 0), radius: 8)
+                }
+            }
+            .allowsHitTesting(false)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !isVerifying {
+                focusedField = .verificationCode
+            }
+        }
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    private func sectionHeader(title: String, copy: String) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(title)
+                .font(.system(size: 29, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Text(copy)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.66))
+                .lineSpacing(3)
+        }
+        .padding(.bottom, 11)
+    }
+
+    private func inputField<Content: View>(
+        label: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: label == nil ? 0 : 8) {
+            if let label {
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.48))
+            }
             content()
         }
-        .frame(height: 52)
-        .padding(.horizontal, 16)
-        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(minHeight: 54)
+        .padding(.leading, 15)
+        .padding(.trailing, 8)
+        .background(.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
         }
     }
 
-    private func submit() async {
-        guard canSubmit else { return }
-        errorMessage = nil
+    private func passwordInput(
+        label: String,
+        prompt: String,
+        text: Binding<String>,
+        isVisible: Binding<Bool>,
+        focus: FocusField,
+        isNewPassword: Bool,
+        onSubmit: @escaping () -> Void
+    ) -> some View {
+        inputField {
+            HStack(spacing: 6) {
+                Group {
+                    if isVisible.wrappedValue {
+                        TextField(
+                            label,
+                            text: text,
+                            prompt: Text(prompt).foregroundStyle(.white.opacity(0.48))
+                        )
+                    } else {
+                        SecureField(
+                            label,
+                            text: text,
+                            prompt: Text(prompt).foregroundStyle(.white.opacity(0.48))
+                        )
+                    }
+                }
+                .textContentType(isNewPassword ? .newPassword : .password)
+                .submitLabel(isNewPassword && focus == .newPassword ? .next : .go)
+                .foregroundStyle(.white)
+                .focused($focusedField, equals: focus)
+                .onSubmit(onSubmit)
+
+                Button {
+                    isVisible.wrappedValue.toggle()
+                } label: {
+                    Image(systemName: isVisible.wrappedValue ? "eye.slash" : "eye")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.67))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isVisible.wrappedValue ? "隐藏密码" : "显示密码")
+            }
+        }
+    }
+
+    private func primaryButton(
+        title: String,
+        isLoading: Bool,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                if isLoading {
+                    ProgressView()
+                        .tint(.black.opacity(0.78))
+                }
+
+                Text(title)
+                    .font(.headline.weight(.semibold))
+            }
+            .foregroundStyle(.black.opacity(isEnabled ? 0.9 : 0.48))
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(.white.opacity(isEnabled ? 0.92 : 0.42), in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(.white.opacity(isEnabled ? 0.92 : 0.2), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(isEnabled ? 0.2 : 0), radius: 18, x: 0, y: 12)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+    }
+
+    private var stepLabel: String {
+        switch step {
+        case .phone:
+            return ""
+        case .password:
+            return "已识别账号"
+        case .verification:
+            switch verificationPurpose {
+            case .login:
+                return "验证码登录"
+            case .register:
+                return "创建个人账号"
+            case .resetPassword:
+                return "找回密码"
+            }
+        case .resetPassword:
+            return "重置密码"
+        }
+    }
+
+    private var verificationTitle: String {
+        switch verificationPurpose {
+        case .login:
+            return "输入验证码"
+        case .register:
+            return "验证手机号"
+        case .resetPassword:
+            return "确认是你"
+        }
+    }
+
+    private var verificationCopy: String {
+        switch verificationPurpose {
+        case .login:
+            return "验证码已发送至 \(maskedPhone)"
+        case .register:
+            return "完成验证后将直接进入 Crest"
+        case .resetPassword:
+            return "请输入发送至 \(maskedPhone) 的验证码"
+        }
+    }
+
+    private var formattedPhone: String {
+        guard phone.count == 11 else { return phone }
+        let start = phone.index(phone.startIndex, offsetBy: 3)
+        let end = phone.index(start, offsetBy: 4)
+        return "\(phone[..<start]) \(phone[start..<end]) \(phone[end...])"
+    }
+
+    private var maskedPhone: String {
+        guard phone.count >= 7 else { return "\(countryCode) \(phone)" }
+        return "\(countryCode) \(phone.prefix(3)) **** \(phone.suffix(4))"
+    }
+
+    private func normalizedPhone(_ value: String) -> String {
+        var digits = String(value.filter { $0.isNumber })
+        if digits.count > 11 && digits.hasPrefix("86") {
+            digits.removeFirst(2)
+        }
+        return String(digits.prefix(11))
+    }
+
+    private func continueWithPhone() async {
+        guard canContinueWithPhone else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        let request = PhoneRegistrationStatusRequest(
+            phone: phone,
+            countryCode: countryCode,
+            clientType: "mobile"
+        )
+        let isRegistered = await api.isPhoneRegistered(request)
+
+        if isRegistered {
+            withAnimation(.easeInOut(duration: 0.28)) {
+                step = .password
+            }
+        } else {
+            await beginVerification(.register)
+        }
+    }
+
+    private func submitPassword() async {
+        guard canSubmitPassword else { return }
         isLoading = true
         defer { isLoading = false }
 
         do {
-            try await session.signIn(username: username, password: password)
+            try await session.signIn(phone: phone, password: password)
         } catch {
-            errorMessage = error.localizedDescription
+            notice = AuthNotice(title: "登录失败", message: error.localizedDescription)
+        }
+    }
+
+    private func beginVerification(_ purpose: PhoneVerificationPurpose) async {
+        let remaining = verificationCooldownRemaining()
+        if remaining > 0 {
+            guard
+                storedVerificationPhone == phone,
+                storedVerificationPurpose == purpose.rawValue,
+                !storedVerificationChallengeID.isEmpty
+            else {
+                showVerificationCooldownNotice(remaining: remaining)
+                return
+            }
+
+            verificationPurpose = purpose
+            verificationCode = ""
+            withAnimation(.easeInOut(duration: 0.28)) {
+                step = .verification
+            }
+            return
+        }
+
+        verificationPurpose = purpose
+        verificationCode = ""
+        withAnimation(.easeInOut(duration: 0.28)) {
+            step = .verification
+        }
+        if await sendVerificationCode() {
+            await verifyCode()
+        }
+    }
+
+    @discardableResult
+    private func sendVerificationCode() async -> Bool {
+        guard !isSendingCode && !isVerifying else { return false }
+
+        let remaining = verificationCooldownRemaining()
+        guard remaining == 0 else {
+            showVerificationCooldownNotice(remaining: remaining)
+            return false
+        }
+
+        guard verificationPurpose != .register else {
+            notice = AuthNotice(
+                title: "注册暂未接入",
+                message: "当前先开放手机号登录和找回密码。"
+            )
+            return false
+        }
+
+        verificationCode = ""
+        storedVerificationPhone = phone
+        storedVerificationPurpose = verificationPurpose.rawValue
+        storedVerificationChallengeID = ""
+        let sendStartedAt = Date()
+        storedResendAvailableAt = sendStartedAt.addingTimeInterval(60).timeIntervalSince1970
+
+        isSendingCode = true
+        defer { isSendingCode = false }
+
+        do {
+            let response = try await api.sendPhoneCode(
+                phone: phone,
+                purpose: verificationPurpose
+            )
+            storedVerificationChallengeID = response.challengeID
+            storedResendAvailableAt = sendStartedAt
+                .addingTimeInterval(TimeInterval(response.resendAfter))
+                .timeIntervalSince1970
+            focusedField = .verificationCode
+            return true
+        } catch {
+            storedVerificationChallengeID = ""
+            storedResendAvailableAt = 0
+            shouldReturnAfterNotice = true
+            notice = AuthNotice(title: "验证码发送失败", message: error.localizedDescription)
+            return false
+        }
+    }
+
+    private func verificationCooldownRemaining(at date: Date = Date()) -> Int {
+        max(0, Int(ceil(resendAvailableAt.timeIntervalSince(date))))
+    }
+
+    private func showVerificationCooldownNotice(remaining: Int) {
+        notice = AuthNotice(
+            title: "操作频繁",
+            message: "请稍等 \(remaining) 秒后再试。"
+        )
+    }
+
+    private func verifyCode() async {
+        guard verificationCode.count == 6, !isSendingCode, !isVerifying else { return }
+        guard verificationPurpose != .register else {
+            verificationCode = ""
+            notice = AuthNotice(title: "功能暂未接入", message: "当前先开放手机号登录和找回密码。")
+            focus(after: .verification)
+            return
+        }
+        guard !storedVerificationChallengeID.isEmpty else {
+            verificationCode = ""
+            notice = AuthNotice(title: "验证码已失效", message: "请重新获取验证码。")
+            focus(after: .verification)
+            return
+        }
+
+        isVerifying = true
+        defer { isVerifying = false }
+
+        do {
+            let response = try await api.confirmPhoneCode(
+                challengeID: storedVerificationChallengeID,
+                code: verificationCode
+            )
+            storedVerificationChallengeID = ""
+
+            switch verificationPurpose {
+            case .login:
+                try await session.signInWithCode(verificationToken: response.verificationToken)
+            case .resetPassword:
+                resetToken = response.verificationToken
+                newPassword = ""
+                confirmPassword = ""
+                withAnimation(.easeInOut(duration: 0.28)) {
+                    step = .resetPassword
+                }
+            case .register:
+                break
+            }
+        } catch {
+            verificationCode = ""
+            notice = AuthNotice(title: "验证码错误", message: error.localizedDescription)
+            focus(after: .verification)
+        }
+    }
+
+    private func submitResetPassword() async {
+        guard canSubmitReset else { return }
+        guard (7...16).contains(newPassword.count) else {
+            notice = AuthNotice(title: "密码格式不正确", message: "新密码需要 7 至 16 位。")
+            return
+        }
+        guard newPassword == confirmPassword else {
+            notice = AuthNotice(title: "两次密码不一致", message: "请重新确认新密码。")
+            confirmPassword = ""
+            focusedField = .confirmPassword
+            return
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let response = try await api.resetPassword(
+                verificationToken: resetToken,
+                newPassword: newPassword
+            )
+            password = ""
+            newPassword = ""
+            confirmPassword = ""
+            resetToken = ""
+            verificationCode = ""
+            withAnimation(.easeInOut(duration: 0.28)) {
+                step = .password
+            }
+            notice = AuthNotice(title: "密码重置成功", message: response.message)
+        } catch {
+            notice = AuthNotice(title: "密码重置失败", message: error.localizedDescription)
+        }
+    }
+
+    private func goBack() {
+        focusedField = nil
+        withAnimation(.easeInOut(duration: 0.28)) {
+            switch step {
+            case .phone:
+                break
+            case .password:
+                password = ""
+                step = .phone
+            case .verification:
+                verificationCode = ""
+                step = verificationPurpose == .register ? .phone : .password
+            case .resetPassword:
+                resetToken = ""
+                newPassword = ""
+                confirmPassword = ""
+                step = .password
+            }
+        }
+    }
+
+    private func focus(after target: AuthStep) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            switch target {
+            case .phone:
+                focusedField = .phone
+            case .password:
+                focusedField = .password
+            case .verification:
+                focusedField = .verificationCode
+            case .resetPassword:
+                focusedField = .newPassword
+            }
         }
     }
 }
