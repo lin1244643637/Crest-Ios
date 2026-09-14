@@ -283,14 +283,19 @@ struct LoginView: View {
             countryCode: countryCode,
             clientType: "mobile"
         )
-        let isRegistered = await api.isPhoneRegistered(request)
-
-        if isRegistered {
-            withAnimation(.easeInOut(duration: 0.28)) {
-                step = .password
+        do {
+            let status = try await api.phoneRegistrationStatus(request)
+            if status.isRegistered && status.hasPassword {
+                withAnimation(.easeInOut(duration: 0.28)) {
+                    step = .password
+                }
+            } else if status.isRegistered {
+                await beginVerification(.login)
+            } else {
+                await beginVerification(.register)
             }
-        } else {
-            await beginVerification(.register)
+        } catch {
+            notice = AuthNotice(title: "查询失败", message: error.localizedDescription)
         }
     }
 
@@ -346,14 +351,6 @@ struct LoginView: View {
             return false
         }
 
-        guard verificationPurpose != .register else {
-            notice = AuthNotice(
-                title: "注册暂未接入",
-                message: "当前先开放手机号登录和找回密码。"
-            )
-            return false
-        }
-
         verificationCode = ""
         storedVerificationPhone = phone
         storedVerificationPurpose = verificationPurpose.rawValue
@@ -396,12 +393,6 @@ struct LoginView: View {
 
     private func verifyCode() async {
         guard verificationCode.count == 6, !isSendingCode, !isVerifying else { return }
-        guard verificationPurpose != .register else {
-            verificationCode = ""
-            notice = AuthNotice(title: "功能暂未接入", message: "当前先开放手机号登录和找回密码。")
-            focus(after: .verification)
-            return
-        }
         guard !storedVerificationChallengeID.isEmpty else {
             verificationCode = ""
             notice = AuthNotice(title: "验证码已失效", message: "请重新获取验证码。")
@@ -430,7 +421,9 @@ struct LoginView: View {
                     step = .resetPassword
                 }
             case .register:
-                break
+                try await session.registerPersonal(
+                    verificationToken: response.verificationToken
+                )
             }
         } catch {
             verificationCode = ""

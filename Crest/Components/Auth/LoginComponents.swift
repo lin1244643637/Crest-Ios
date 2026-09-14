@@ -19,13 +19,8 @@ struct AuthTopBar: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay {
-                        Circle()
-                            .stroke(.white.opacity(0.22), lineWidth: 1)
-                    }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.bordered)
             .accessibilityLabel("返回")
 
             Spacer()
@@ -370,7 +365,6 @@ private struct AuthPasswordInput: View {
                         .foregroundStyle(.white.opacity(0.67))
                         .frame(width: 44, height: 44)
                 }
-                .buttonStyle(.plain)
                 .accessibilityLabel(isVisible ? "隐藏密码" : "显示密码")
             }
         }

@@ -5,6 +5,9 @@ final class SessionStore: ObservableObject {
     @Published private(set) var isSignedIn = false
     @Published private(set) var isRestoringSession: Bool
     @Published private(set) var username = ""
+    @Published private(set) var tenantID: String?
+    @Published private(set) var role = ""
+    @Published private(set) var hasPassword = false
 
     private let api = APIClient()
     private let keychain = KeychainStore(service: "com.blackwave.crest")
@@ -37,6 +40,23 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    func registerPersonal(verificationToken: String) async throws {
+        do {
+            let response = try await api.registerPersonal(verificationToken: verificationToken)
+            try startSession(with: response)
+        } catch {
+            clearLocalSession()
+            throw error
+        }
+    }
+
+    func setInitialPassword(_ newPassword: String) async throws {
+        let response = try await withAuthenticatedSession { token in
+            try await api.setInitialPassword(newPassword, accessToken: token)
+        }
+        hasPassword = response.hasPassword
+    }
+
     func restoreSession() async {
         guard !didAttemptRestore else { return }
         didAttemptRestore = true
@@ -49,6 +69,9 @@ final class SessionStore: ObservableObject {
         if !(await refreshStoredSession()) {
             accessToken = nil
             username = ""
+            tenantID = nil
+            role = ""
+            hasPassword = false
             isSignedIn = false
         }
     }
@@ -110,6 +133,9 @@ final class SessionStore: ObservableObject {
         try keychain.saveRefreshToken(refreshToken)
         accessToken = response.token
         username = response.username
+        tenantID = response.tenantID
+        role = response.role
+        hasPassword = response.hasPassword
         isSignedIn = true
     }
 
@@ -152,6 +178,9 @@ final class SessionStore: ObservableObject {
         accessToken = nil
         keychain.deleteSessionTokens()
         username = ""
+        tenantID = nil
+        role = ""
+        hasPassword = false
         isSignedIn = false
     }
 

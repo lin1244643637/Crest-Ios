@@ -33,9 +33,9 @@ struct AppSettingsSheet: View {
                             Image(systemName: "xmark")
                                 .font(.system(size: 16, weight: .semibold))
                                 .frame(width: 44, height: 44)
-                                .background(Color(uiColor: .secondarySystemGroupedBackground), in: Circle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.circle)
                         .accessibilityLabel("关闭设置")
                     }
 
@@ -95,7 +95,7 @@ struct AppSettingsSheet: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 58)
                     .background(
-                        Color(uiColor: .secondarySystemGroupedBackground),
+                        AppColors.surface,
                         in: RoundedRectangle(cornerRadius: 45, style: .continuous)
                     )
             }
@@ -104,7 +104,8 @@ struct AppSettingsSheet: View {
             .padding(.top, 12)
             .padding(.bottom, 14)
         }
-        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .foregroundStyle(AppColors.primaryText)
+        .background(AppColors.background.ignoresSafeArea())
         .preferredColorScheme(theme.colorScheme)
         .tint(.blue)
     }
@@ -116,11 +117,11 @@ struct AppSettingsSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.headline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.secondaryText)
                 .padding(.leading, 4)
 
             VStack(spacing: 0, content: content)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .background(AppColors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .padding(.bottom, 26)
@@ -130,7 +131,7 @@ struct AppSettingsSheet: View {
         icon: String,
         title: String,
         value: String? = nil,
-        titleColor: Color = .primary,
+        titleColor: Color = AppColors.primaryText,
         showsChevron: Bool = false
     ) -> some View {
         HStack(spacing: 14) {
@@ -146,14 +147,14 @@ struct AppSettingsSheet: View {
 
             if let value {
                 Text(value)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.secondaryText)
                     .lineLimit(1)
             }
 
             if showsChevron {
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.tertiaryText)
             }
         }
         .font(.body)

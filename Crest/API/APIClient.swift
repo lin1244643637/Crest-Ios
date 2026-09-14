@@ -3,9 +3,10 @@ import Foundation
 struct LoginResponse: Decodable {
     let token: String
     let username: String
-    let tenantID: String
+    let tenantID: String?
     let userID: String
     let role: String
+    let hasPassword: Bool
     let refreshToken: String?
 
     enum CodingKeys: String, CodingKey {
@@ -14,18 +15,17 @@ struct LoginResponse: Decodable {
         case tenantID = "tenant_id"
         case userID = "user_id"
         case role
+        case hasPassword = "has_password"
         case refreshToken = "refresh_token"
     }
 }
 
 enum PhoneVerificationPurpose: String, Encodable {
     case login
-    case register
+    case register = "personal_register"
     case resetPassword = "reset_password"
 }
 
-// Registration status is not exposed by the server yet, so this request is kept
-// separate from the verification endpoints that are already available.
 struct PhoneRegistrationStatusRequest: Encodable {
     let phone: String
     let countryCode: String
@@ -35,6 +35,16 @@ struct PhoneRegistrationStatusRequest: Encodable {
         case phone
         case countryCode = "country_code"
         case clientType = "client_type"
+    }
+}
+
+struct PhoneRegistrationStatusResponse: Decodable {
+    let isRegistered: Bool
+    let hasPassword: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case isRegistered = "is_registered"
+        case hasPassword = "has_password"
     }
 }
 
@@ -89,6 +99,36 @@ struct CodeLoginRequest: Encodable {
         case verificationToken = "verification_token"
         case clientType = "client_type"
         case deviceName = "device_name"
+    }
+}
+
+struct PersonalRegisterRequest: Encodable {
+    let verificationToken: String
+    let clientType: String
+    let deviceName: String
+
+    enum CodingKeys: String, CodingKey {
+        case verificationToken = "verification_token"
+        case clientType = "client_type"
+        case deviceName = "device_name"
+    }
+}
+
+struct InitialPasswordRequest: Encodable {
+    let newPassword: String
+
+    enum CodingKeys: String, CodingKey {
+        case newPassword = "new_password"
+    }
+}
+
+struct InitialPasswordResponse: Decodable {
+    let message: String
+    let hasPassword: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case hasPassword = "has_password"
     }
 }
 
@@ -157,12 +197,14 @@ enum APIError: LocalizedError {
 struct APIClient {
     let baseURL = URL(string: "https://blackwave.org.cn/yuanji")!
 
-    func isPhoneRegistered(_ request: PhoneRegistrationStatusRequest) async -> Bool {
-        // TODO(auth-api): Replace this fallback when the registration-status endpoint is ready.
-        // Request parameters: phone, country_code, client_type.
-        // Expected response fields: is_registered, has_password.
-        _ = request
-        return true
+    func phoneRegistrationStatus(
+        _ request: PhoneRegistrationStatusRequest
+    ) async throws -> PhoneRegistrationStatusResponse {
+        try await post(
+            "/api/v1/auth/phone-status",
+            body: request,
+            fallbackError: "手机号状态查询失败"
+        )
     }
 
     func login(phone: String, password: String) async throws -> LoginResponse {
@@ -219,6 +261,30 @@ struct APIClient {
         )
     }
 
+    func registerPersonal(verificationToken: String) async throws -> LoginResponse {
+        try await post(
+            "/api/v1/auth/personal-register",
+            body: PersonalRegisterRequest(
+                verificationToken: verificationToken,
+                clientType: "mobile",
+                deviceName: "crest-ios"
+            ),
+            fallbackError: "个人账号创建失败"
+        )
+    }
+
+    func setInitialPassword(
+        _ newPassword: String,
+        accessToken: String
+    ) async throws -> InitialPasswordResponse {
+        try await post(
+            "/api/v1/auth/password/initial",
+            body: InitialPasswordRequest(newPassword: newPassword),
+            fallbackError: "密码设置失败",
+            accessToken: accessToken
+        )
+    }
+
     func refreshSession(refreshToken: String) async throws -> LoginResponse {
         try await post(
             "/api/v1/auth/refresh",
@@ -253,12 +319,16 @@ struct APIClient {
     private func post<RequestBody: Encodable, ResponseBody: Decodable>(
         _ path: String,
         body: RequestBody,
-        fallbackError: String
+        fallbackError: String,
+        accessToken: String? = nil
     ) async throws -> ResponseBody {
         let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let accessToken {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
