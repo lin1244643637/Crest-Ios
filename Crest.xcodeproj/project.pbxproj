@@ -14,6 +14,14 @@
 		000000000000000000000114 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000014 /* KeychainStore.swift */; };
 		000000000000000000000115 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000015 /* LoginView.swift */; };
 		000000000000000000000116 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000016 /* ChatView.swift */; };
+		000000000000000000000117 /* ChatAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000017 /* ChatAPI.swift */; };
+		000000000000000000000118 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000018 /* ChatModels.swift */; };
+		000000000000000000000119 /* ChatComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000019 /* ChatComponents.swift */; };
+		00000000000000000000011A /* AppSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001A /* AppSidebar.swift */; };
+		00000000000000000000011B /* LoginComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001B /* LoginComponents.swift */; };
+		00000000000000000000011C /* AnimatedLoginBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001C /* AnimatedLoginBackground.swift */; };
+		00000000000000000000011D /* AppSettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001D /* AppSettingsSheet.swift */; };
+		00000000000000000000011E /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001E /* AppTheme.swift */; };
 		000000000000000000000120 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000020 /* Assets.xcassets */; };
 		000000000000000000000121 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000021 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -27,6 +35,14 @@
 		000000000000000000000014 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		000000000000000000000015 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		000000000000000000000016 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		000000000000000000000017 /* ChatAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAPI.swift; sourceTree = "<group>"; };
+		000000000000000000000018 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
+		000000000000000000000019 /* ChatComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatComponents.swift; sourceTree = "<group>"; };
+		00000000000000000000001A /* AppSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSidebar.swift; sourceTree = "<group>"; };
+		00000000000000000000001B /* LoginComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginComponents.swift; sourceTree = "<group>"; };
+		00000000000000000000001C /* AnimatedLoginBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedLoginBackground.swift; sourceTree = "<group>"; };
+		00000000000000000000001D /* AppSettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsSheet.swift; sourceTree = "<group>"; };
+		00000000000000000000001E /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		000000000000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		000000000000000000000021 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Content/Preview Assets.xcassets"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -61,17 +77,97 @@
 		000000000000000000000005 /* Crest */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000010 /* CrestApp.swift */,
-				000000000000000000000011 /* RootView.swift */,
-				000000000000000000000012 /* SessionStore.swift */,
-				000000000000000000000013 /* APIClient.swift */,
-				000000000000000000000014 /* KeychainStore.swift */,
-				000000000000000000000015 /* LoginView.swift */,
-				000000000000000000000016 /* ChatView.swift */,
+				00000000000000000000000A /* App */,
+				00000000000000000000000B /* Views */,
+				000000000000000000000007 /* Components */,
+				00000000000000000000000E /* Models */,
+				00000000000000000000000C /* API */,
+				00000000000000000000000D /* Session */,
 				000000000000000000000020 /* Assets.xcassets */,
 				000000000000000000000021 /* Preview Assets.xcassets */,
 			);
 			path = Crest;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000010 /* CrestApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000B /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000011 /* RootView.swift */,
+				000000000000000000000015 /* LoginView.swift */,
+				000000000000000000000016 /* ChatView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000C /* API */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000013 /* APIClient.swift */,
+				000000000000000000000017 /* ChatAPI.swift */,
+			);
+			path = API;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000D /* Session */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000012 /* SessionStore.swift */,
+				000000000000000000000014 /* KeychainStore.swift */,
+			);
+			path = Session;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000E /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000018 /* ChatModels.swift */,
+				00000000000000000000001E /* AppTheme.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		000000000000000000000007 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000008 /* Auth */,
+				000000000000000000000009 /* Chat */,
+				00000000000000000000000F /* Shared */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		000000000000000000000008 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000001B /* LoginComponents.swift */,
+				00000000000000000000001C /* AnimatedLoginBackground.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		000000000000000000000009 /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000019 /* ChatComponents.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		00000000000000000000000F /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000001A /* AppSidebar.swift */,
+				00000000000000000000001D /* AppSettingsSheet.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -152,6 +248,14 @@
 				000000000000000000000114 /* KeychainStore.swift in Sources */,
 				000000000000000000000115 /* LoginView.swift in Sources */,
 				000000000000000000000116 /* ChatView.swift in Sources */,
+				000000000000000000000117 /* ChatAPI.swift in Sources */,
+				000000000000000000000118 /* ChatModels.swift in Sources */,
+				000000000000000000000119 /* ChatComponents.swift in Sources */,
+				00000000000000000000011A /* AppSidebar.swift in Sources */,
+				00000000000000000000011B /* LoginComponents.swift in Sources */,
+				00000000000000000000011C /* AnimatedLoginBackground.swift in Sources */,
+				00000000000000000000011D /* AppSettingsSheet.swift in Sources */,
+				00000000000000000000011E /* AppTheme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

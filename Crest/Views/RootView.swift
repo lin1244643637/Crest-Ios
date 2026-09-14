@@ -7,9 +7,9 @@ struct RootView: View {
         Group {
             if session.isRestoringSession {
                 ZStack {
-                    Color.black.ignoresSafeArea()
+                    Color(uiColor: .systemBackground).ignoresSafeArea()
                     ProgressView()
-                        .tint(.white)
+                        .tint(.secondary)
                 }
             } else if session.isSignedIn {
                 ChatView()
