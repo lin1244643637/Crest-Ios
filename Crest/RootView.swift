@@ -5,11 +5,20 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if session.isSignedIn {
+            if session.isRestoringSession {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    ProgressView()
+                        .tint(.white)
+                }
+            } else if session.isSignedIn {
                 ChatView()
             } else {
                 LoginView()
             }
+        }
+        .task {
+            await session.restoreSession()
         }
     }
 }

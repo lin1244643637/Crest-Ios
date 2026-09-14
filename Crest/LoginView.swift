@@ -69,6 +69,10 @@ struct LoginView: View {
         ZStack {
             AnimatedLoginBackground()
                 .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedField = nil
+                }
 
             VStack(spacing: 0) {
                 Group {
@@ -87,7 +91,10 @@ struct LoginView: View {
                     .id(step)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .padding(20)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .background {
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    }
                     .overlay {
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .stroke(.white.opacity(0.18), lineWidth: 1)
@@ -110,12 +117,6 @@ struct LoginView: View {
                     }
                 }
             )
-        }
-        .onAppear {
-            focus(after: .phone)
-        }
-        .onChange(of: step) { _, newStep in
-            focus(after: newStep)
         }
         .onChange(of: phone) { _, value in
             let digits = normalizedPhone(value)
@@ -659,7 +660,6 @@ struct LoginView: View {
             storedResendAvailableAt = sendStartedAt
                 .addingTimeInterval(TimeInterval(response.resendAfter))
                 .timeIntervalSince1970
-            focusedField = .verificationCode
             return true
         } catch {
             storedVerificationChallengeID = ""
