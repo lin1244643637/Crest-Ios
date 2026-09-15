@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 登录流程中所有可聚焦输入项的统一标识。
 enum AuthFocusField: Hashable {
     case phone
     case password
@@ -8,6 +9,7 @@ enum AuthFocusField: Hashable {
     case confirmPassword
 }
 
+/// 非手机号首屏使用的返回导航栏。
 struct AuthTopBar: View {
     let label: String
     let onBack: () -> Void
@@ -35,6 +37,7 @@ struct AuthTopBar: View {
     }
 }
 
+/// 登录流程第一步，只收集并校验手机号格式。
 struct PhoneLoginPanel: View {
     let countryCode: String
     @Binding var phone: String
@@ -90,6 +93,7 @@ struct PhoneLoginPanel: View {
     }
 }
 
+/// 已设置密码用户的密码登录面板。
 struct PasswordLoginPanel: View {
     let formattedPhone: String
     @Binding var password: String
@@ -141,6 +145,7 @@ struct PasswordLoginPanel: View {
     }
 }
 
+/// 验证码输入、自动校验和重新发送倒计时面板。
 struct VerificationLoginPanel: View {
     let title: String
     let copy: String
@@ -185,6 +190,7 @@ struct VerificationLoginPanel: View {
     }
 }
 
+/// 验证码通过后的新密码确认面板。
 struct ResetPasswordPanel: View {
     @Binding var newPassword: String
     @Binding var confirmPassword: String
@@ -234,6 +240,7 @@ struct ResetPasswordPanel: View {
     }
 }
 
+/// 六格视觉输入框，实际输入由一个透明 TextField 统一接收。
 private struct VerificationCodeInput: View {
     @Binding var code: String
     let isVerifying: Bool
@@ -303,6 +310,7 @@ private struct AuthSectionHeader: View {
     }
 }
 
+/// 登录页通用玻璃输入容器。
 private struct AuthInputField<Content: View>: View {
     let content: Content
 
@@ -323,6 +331,7 @@ private struct AuthInputField<Content: View>: View {
     }
 }
 
+/// 可切换明文显示的密码输入框。
 private struct AuthPasswordInput: View {
     let label: String
     let prompt: String
@@ -371,6 +380,7 @@ private struct AuthPasswordInput: View {
     }
 }
 
+/// 登录流程统一的主要操作按钮。
 private struct AuthPrimaryButton: View {
     let title: String
     let isLoading: Bool

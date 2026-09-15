@@ -1,5 +1,6 @@
 import Foundation
 
+/// 页面使用的统一消息模型，可由历史消息转换而来。
 struct ChatMessage: Identifiable {
     enum Role {
         case user
@@ -26,12 +27,14 @@ struct ChatMessage: Identifiable {
     }
 }
 
+/// 驱动聊天页面原生错误弹窗的数据模型。
 struct ChatAlert: Identifiable {
     let id = UUID()
     let title: String
     let message: String
 }
 
+/// 空白对话页中的快捷问题。
 struct ChatSuggestion: Identifiable {
     let id = UUID()
     let icon: String

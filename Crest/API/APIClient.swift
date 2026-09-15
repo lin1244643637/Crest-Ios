@@ -1,5 +1,6 @@
 import Foundation
 
+/// 登录、注册和刷新会话共用的服务端响应。
 struct LoginResponse: Decodable {
     let token: String
     let username: String
@@ -20,6 +21,7 @@ struct LoginResponse: Decodable {
     }
 }
 
+/// 短信验证码用途，原始值必须与后端接口约定一致。
 enum PhoneVerificationPurpose: String, Encodable {
     case login
     case register = "personal_register"
@@ -160,6 +162,7 @@ private struct LogoutResponse: Decodable {
     let ok: Bool
 }
 
+/// 将网络层错误转换成可直接展示给用户的中文信息。
 enum APIError: LocalizedError {
     case invalidResponse
     case invalidSession
@@ -194,8 +197,13 @@ enum APIError: LocalizedError {
     }
 }
 
+/// 认证接口客户端，统一处理地址、JSON 编解码和 HTTP 错误。
 struct APIClient {
+#if DEBUG
+    let baseURL = URL(string: "http://BlackWavedeMac-mini-2.local:8000")!
+#else
     let baseURL = URL(string: "https://blackwave.org.cn/yuanji")!
+#endif
 
     func phoneRegistrationStatus(
         _ request: PhoneRegistrationStatusRequest
@@ -316,6 +324,7 @@ struct APIClient {
         )
     }
 
+    /// 所有认证 POST 请求共用的最小请求管线。
     private func post<RequestBody: Encodable, ResponseBody: Decodable>(
         _ path: String,
         body: RequestBody,

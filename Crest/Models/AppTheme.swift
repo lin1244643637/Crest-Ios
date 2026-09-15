@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 用户可选择的应用外观模式。
 enum AppTheme: String, CaseIterable, Identifiable {
     case system
     case light
@@ -43,6 +44,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 }
 
+/// 全局语义色板，颜色会随当前深浅色模式自动切换。
 enum AppColors {
     static let background = adaptive(light: 0xFFFFFF, dark: 0x212121)
     static let sidebarBackground = adaptive(light: 0xF9F9F9, dark: 0x171717)
@@ -54,6 +56,8 @@ enum AppColors {
     static let inputBackground = adaptive(light: 0xFFFFFF, dark: 0x303030)
     static let primaryButton = adaptive(light: 0x0D0D0D, dark: 0xFFFFFF)
     static let buttonText = adaptive(light: 0xFFFFFF, dark: 0x0D0D0D)
+    static let chatSendButton = adaptive(light: 0x0285FF, dark: 0x0A84FF)
+    static let chatSendButtonText = Color.white
 
     private static func adaptive(light: UInt32, dark: UInt32) -> Color {
         Color(uiColor: UIColor { traits in
@@ -68,5 +72,17 @@ enum AppColors {
             blue: CGFloat(hex & 0xFF) / 255,
             alpha: 1
         )
+    }
+}
+
+/// 保存真正的系统主题，避免弹窗读取到应用强制覆盖后的主题。
+private struct SystemColorSchemeKey: EnvironmentKey {
+    static let defaultValue: ColorScheme = .light
+}
+
+extension EnvironmentValues {
+    var systemColorScheme: ColorScheme {
+        get { self[SystemColorSchemeKey.self] }
+        set { self[SystemColorSchemeKey.self] = newValue }
     }
 }

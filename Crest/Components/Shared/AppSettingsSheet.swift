@@ -1,7 +1,9 @@
 import SwiftUI
 
+/// 从底部展示的账户和主题设置面板。
 struct AppSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.systemColorScheme) private var systemColorScheme
     @AppStorage(AppTheme.storageKey) private var selectedTheme = AppTheme.dark.rawValue
 
     let username: String
@@ -17,6 +19,11 @@ struct AppSettingsSheet: View {
 
     private var theme: AppTheme {
         AppTheme(rawValue: selectedTheme) ?? .dark
+    }
+
+    /// “跟随系统”使用捕获的真实系统主题，其他选项使用用户指定主题。
+    private var resolvedColorScheme: ColorScheme {
+        theme.colorScheme ?? systemColorScheme
     }
 
     var body: some View {
@@ -106,10 +113,11 @@ struct AppSettingsSheet: View {
         }
         .foregroundStyle(AppColors.primaryText)
         .background(AppColors.background.ignoresSafeArea())
-        .preferredColorScheme(theme.colorScheme)
+        .preferredColorScheme(resolvedColorScheme)
         .tint(.blue)
     }
 
+    /// 统一设置分区标题、间距和圆角容器。
     private func settingsSection<Content: View>(
         title: String,
         @ViewBuilder content: () -> Content
@@ -127,6 +135,7 @@ struct AppSettingsSheet: View {
         .padding(.bottom, 26)
     }
 
+    /// 统一设置行的图标、标题、值和下拉指示样式。
     private func settingsRow(
         icon: String,
         title: String,

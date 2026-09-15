@@ -1,11 +1,13 @@
 import Foundation
 import Security
 
+/// 使用系统 Keychain 持久保存刷新令牌，访问令牌不会写入本地。
 struct KeychainStore {
     let service: String
     private let refreshTokenAccount = "refresh-token"
     private let legacyAccessTokenAccount = "access-token"
 
+    /// 已有条目时更新，否则创建仅限本设备使用的新条目。
     func saveRefreshToken(_ token: String) throws {
         let query = baseQuery(account: refreshTokenAccount)
         let attributes: [String: Any] = [
@@ -39,6 +41,7 @@ struct KeychainStore {
         return String(data: data, encoding: .utf8)
     }
 
+    /// 同时清理当前刷新令牌和旧版本遗留的访问令牌。
     func deleteSessionTokens() {
         delete(account: refreshTokenAccount)
         delete(account: legacyAccessTokenAccount)

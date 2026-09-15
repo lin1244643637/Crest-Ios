@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 使用 Canvas 绘制持续漂移的黑白弥散光带登录背景。
 struct AnimatedLoginBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -40,6 +41,7 @@ struct AnimatedLoginBackground: View {
         .accessibilityHidden(true)
     }
 
+    /// 叠加不同宽度和模糊程度的曲线，形成一条有层次的光带。
     private func drawRibbon(_ index: Int, time: Double, context: GraphicsContext, size: CGSize) {
         let channel = index * 100
         let lane: CGFloat = [-0.08, 0.62, 1.02, 0.28][index]
@@ -181,6 +183,7 @@ struct AnimatedLoginBackground: View {
         return CGFloat((from + (to - from) * eased) * 2 - 1)
     }
 
+    /// 根据种子产生稳定的伪随机值，让动画连续且每次启动略有不同。
     private func randomUnit(step: Int, channel: Int) -> Double {
         let value = sin(Double(seed + step * 1013 + channel * 7919) * 12.9898) * 43758.5453
         return value - floor(value)

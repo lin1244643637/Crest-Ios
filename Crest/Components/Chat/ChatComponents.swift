@@ -1,7 +1,9 @@
 import SwiftUI
 
+/// 聊天页顶部导航，提供侧边栏、新对话和账户入口。
 struct ChatHeader: View {
     let title: String
+    let subtitle: String
     let onOpenSidebar: () -> Void
     let onNewConversation: () -> Void
     let onOpenSettings: () -> Void
@@ -12,7 +14,7 @@ struct ChatHeader: View {
                 Text(title)
                     .font(.headline.weight(.semibold))
                     .lineLimit(1)
-                Text("经营助手")
+                Text(subtitle)
                     .font(.caption2)
                     .foregroundStyle(AppColors.secondaryText)
             }
@@ -51,8 +53,10 @@ struct ChatHeader: View {
     }
 }
 
+/// 新对话的欢迎内容和快捷问题入口。
 struct ChatEmptyState: View {
     let suggestions: [ChatSuggestion]
+    let subtitle: String
     let onSelectSuggestion: (ChatSuggestion) -> Void
 
     var body: some View {
@@ -66,7 +70,7 @@ struct ChatEmptyState: View {
                 .font(.system(size: 28, weight: .semibold, design: .rounded))
                 .multilineTextAlignment(.center)
 
-            Text("从一个经营问题开始")
+            Text(subtitle)
                 .font(.subheadline)
                 .foregroundStyle(AppColors.secondaryText)
                 .padding(.top, 8)
@@ -111,6 +115,7 @@ struct ChatEmptyState: View {
     }
 }
 
+/// 按顺序展示当前会话消息，并为流式消息传递加载状态。
 struct ChatMessageList: View {
     let messages: [ChatMessage]
     let streamingMessageID: String?
@@ -130,6 +135,7 @@ struct ChatMessageList: View {
     }
 }
 
+/// 底部消息编辑器，输入内容和焦点状态由聊天页统一管理。
 struct ChatComposer: View {
     @Binding var draft: String
     @FocusState.Binding var isFocused: Bool
@@ -137,11 +143,9 @@ struct ChatComposer: View {
     let onSend: () -> Void
 
     var body: some View {
+        // 外层负责底部区域背景，内层 HStack 是可见的圆角输入框。
         VStack(spacing: 0) {
-            Divider()
-                .overlay(AppColors.border)
-
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .bottom, spacing: 8) {
                 TextField(
                     "给 Crest 发消息",
                     text: $draft,
@@ -152,33 +156,40 @@ struct ChatComposer: View {
                 .focused($isFocused)
                 .submitLabel(.send)
                 .onSubmit(onSend)
-                .padding(.leading, 14)
-                .padding(.vertical, 12)
+                .padding(.leading, 16)
+                .padding(.vertical, 14)
 
+                // 发送按钮和多行输入框底部对齐。
                 Button(action: onSend) {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(AppColors.chatSendButtonText)
                         .frame(width: 30, height: 30)
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.circle)
                 .disabled(!canSend)
                 .accessibilityLabel("发送")
+                .tint(AppColors.chatSendButton)
                 .padding(.trailing, 2)
+                .padding(.bottom, 4)
             }
-            .background(AppColors.inputBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .frame(minHeight: 52)
+            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(isFocused ? AppColors.secondaryText : AppColors.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(isFocused ? AppColors.secondaryText.opacity(0.8) : AppColors.border, lineWidth: 1)
             }
             .padding(.horizontal, 12)
-            .padding(.top, 10)
+            .padding(.top, 0)
             .padding(.bottom, 8)
         }
+        .frame(minHeight: 64)       // VStack 最小高度
         .background(AppColors.background)
     }
 }
 
+/// 根据消息角色切换用户气泡和助手正文样式。
 private struct MessageRow: View {
     let message: ChatMessage
     let loadingLabel: String?
@@ -221,6 +232,7 @@ private struct MessageRow: View {
     }
 }
 
+/// 空白对话页使用的 Crest 标记。
 private struct CrestMark: View {
     var size: CGFloat = 58
 
@@ -240,6 +252,7 @@ private struct CrestMark: View {
     }
 }
 
+/// 聊天页面随主题切换的低对比度背景。
 struct ChatBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
 

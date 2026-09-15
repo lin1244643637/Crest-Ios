@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 编排手机号、密码、验证码和重置密码四段认证流程。
 struct LoginView: View {
     @EnvironmentObject private var session: SessionStore
 
@@ -33,6 +34,7 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var isSendingCode = false
     @State private var isVerifying = false
+    // 冷却状态写入本地，返回上一页或重启后仍沿用同一次倒计时。
     @AppStorage("auth.sms.phone") private var storedVerificationPhone = ""
     @AppStorage("auth.sms.purpose") private var storedVerificationPurpose = ""
     @AppStorage("auth.sms.challengeID") private var storedVerificationChallengeID = ""
@@ -122,6 +124,7 @@ struct LoginView: View {
                 verificationCode = digits
                 return
             }
+            // 六位输入完成后自动提交，失败时 verifyCode 会清空并重新聚焦。
             if digits.count == 6 && !isSendingCode && !isVerifying {
                 Task { await verifyCode() }
             }
@@ -273,6 +276,7 @@ struct LoginView: View {
         return String(digits.prefix(11))
     }
 
+    /// 根据手机号注册状态决定进入密码登录、验证码登录或新用户注册。
     private func continueWithPhone() async {
         guard canContinueWithPhone else { return }
         isLoading = true
@@ -311,6 +315,7 @@ struct LoginView: View {
         }
     }
 
+    /// 先进入验证码页，再异步发送短信，避免用户点击后感觉页面卡顿。
     private func beginVerification(_ purpose: PhoneVerificationPurpose) async {
         let remaining = verificationCooldownRemaining()
         if remaining > 0 {
@@ -342,6 +347,7 @@ struct LoginView: View {
     }
 
     @discardableResult
+    /// 发送前立即保存冷却时间；请求失败时撤销倒计时并返回上一页。
     private func sendVerificationCode() async -> Bool {
         guard !isSendingCode && !isVerifying else { return false }
 
@@ -391,6 +397,7 @@ struct LoginView: View {
         )
     }
 
+    /// 校验成功后按照用途完成登录、注册或进入重置密码页面。
     private func verifyCode() async {
         guard verificationCode.count == 6, !isSendingCode, !isVerifying else { return }
         guard !storedVerificationChallengeID.isEmpty else {

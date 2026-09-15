@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 聊天主页，负责消息流、历史会话、侧边栏和设置弹窗的状态编排。
 struct ChatView: View {
     @EnvironmentObject private var session: SessionStore
     @FocusState private var isComposerFocused: Bool
@@ -19,14 +20,24 @@ struct ChatView: View {
     @State private var isLoadingConversation = false
     @State private var isSidebarOpen = false
     @State private var isSettingsPresented = false
+    @State private var isSettingPassword = false
     @State private var presentedAlert: ChatAlert?
     @State private var chatTask: Task<Void, Never>?
 
-    private let suggestions = [
-        ChatSuggestion(icon: "chart.line.uptrend.xyaxis", title: "分析本月经营情况"),
-        ChatSuggestion(icon: "exclamationmark.magnifyingglass", title: "找出最近的异常费用"),
-        ChatSuggestion(icon: "doc.text", title: "生成一份经营摘要")
-    ]
+    private var suggestions: [ChatSuggestion] {
+        if session.tenantID == nil {
+            return [
+                ChatSuggestion(icon: "menucard", title: "帮我设计一份菜单结构"),
+                ChatSuggestion(icon: "chart.pie", title: "如何控制餐厅食材成本"),
+                ChatSuggestion(icon: "megaphone", title: "制定新店开业推广计划")
+            ]
+        }
+        return [
+            ChatSuggestion(icon: "chart.line.uptrend.xyaxis", title: "分析本月经营情况"),
+            ChatSuggestion(icon: "exclamationmark.magnifyingglass", title: "找出最近的异常费用"),
+            ChatSuggestion(icon: "doc.text", title: "生成一份经营摘要")
+        ]
+    }
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -55,6 +66,11 @@ struct ChatView: View {
             .presentationDragIndicator(.hidden)
             .presentationCornerRadius(45)
         }
+        .sheet(isPresented: $isSettingPassword) {
+            InitialPasswordView()
+                .environmentObject(session)
+                .presentationDetents([.medium])
+        }
     }
 
     private var chatContent: some View {
@@ -65,13 +81,37 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 ChatHeader(
                     title: activeTitle,
+                    subtitle: session.tenantID == nil ? "餐饮经营助手" : "经营助手",
                     onOpenSidebar: openSidebar,
                     onNewConversation: startNewConversation,
                     onOpenSettings: openSettings
                 )
 
                 Divider()
-                    .overlay(Color.primary.opacity(0.08))
+                    .overlay(AppColors.border)
+
+                if session.tenantID == nil && !session.hasPassword {
+                    Button {
+                        isSettingPassword = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "lock.badge.plus")
+                            Text("完善密码")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppColors.primaryText)
+                        .padding(.horizontal, 18)
+                        .frame(height: 44)
+                        .background(AppColors.surface)
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                        .overlay(AppColors.border)
+                }
 
                 conversation
             }
@@ -108,10 +148,13 @@ struct ChatView: View {
             ScrollView {
                 if isLoadingConversation {
                     ProgressView()
-                        .tint(.secondary)
+                        .tint(AppColors.secondaryText)
                         .frame(maxWidth: .infinity, minHeight: 500)
                 } else if messages.isEmpty {
-                    ChatEmptyState(suggestions: suggestions) { suggestion in
+                    ChatEmptyState(
+                        suggestions: suggestions,
+                        subtitle: "从一个餐饮经营问题开始"
+                    ) { suggestion in
                         draft = suggestion.title
                         isComposerFocused = true
                     }
@@ -126,7 +169,7 @@ struct ChatView: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 18)
             .padding(.top, 22)
-            .padding(.bottom, 24)
+            .padding(.bottom, 8)
             .scrollDismissesKeyboard(.interactively)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -146,6 +189,7 @@ struct ChatView: View {
             && !isWaitingForService
     }
 
+    /// 先插入空的助手消息占位，再把流式片段持续追加到同一条消息。
     private func sendMessage() {
         let content = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty, !isWaitingForService else { return }
@@ -226,6 +270,7 @@ struct ChatView: View {
         isSettingsPresented = true
     }
 
+    /// 加载侧边栏历史，并同步当前会话可能被服务端更新的标题。
     private func loadHistory() async {
         guard !isLoadingHistory else { return }
         isLoadingHistory = true
@@ -247,6 +292,7 @@ struct ChatView: View {
         }
     }
 
+    /// 等待侧边栏收起动画结束后加载所选历史会话。
     private func openConversation(_ item: ChatSessionSummary) {
         chatTask?.cancel()
         closeSidebar()
@@ -279,6 +325,7 @@ struct ChatView: View {
         }
     }
 
+    /// 将网络层流式事件合并进当前页面状态。
     private func apply(_ event: ChatStreamEvent, to messageID: String) {
         switch event {
         case .text(let text):

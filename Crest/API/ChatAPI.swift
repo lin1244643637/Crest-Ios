@@ -1,5 +1,6 @@
 import Foundation
 
+/// 侧边栏展示的对话历史摘要。
 struct ChatSessionSummary: Decodable, Identifiable {
     let sessionID: String
     let title: String
@@ -16,6 +17,7 @@ struct ChatSessionSummary: Decodable, Identifiable {
     }
 }
 
+/// 服务端返回的单条历史消息。
 struct ChatHistoryMessage: Decodable {
     let id: String
     let role: String
@@ -30,6 +32,7 @@ struct ChatHistoryMessage: Decodable {
     }
 }
 
+/// 打开历史会话时返回的完整对话内容。
 struct ChatSessionDetail: Decodable {
     let sessionID: String
     let title: String
@@ -42,6 +45,7 @@ struct ChatSessionDetail: Decodable {
     }
 }
 
+/// 将服务端流式事件转换成页面可直接消费的类型。
 enum ChatStreamEvent {
     case text(String)
     case metadata(sessionID: String?)
@@ -59,6 +63,7 @@ private struct ChatRequest: Encodable {
     }
 }
 
+/// 聊天、历史记录和流式响应接口。
 extension APIClient {
     func listChatSessions(accessToken: String) async throws -> [ChatSessionSummary] {
         try await get(
@@ -111,6 +116,7 @@ extension APIClient {
             throw APIError.server(message)
         }
 
+        // SSE 必须收到明确的结束标记，否则按回复中断处理。
         var didComplete = false
         for try await line in bytes.lines {
             try Task.checkCancellation()
@@ -157,9 +163,10 @@ extension APIClient {
         return try JSONDecoder().decode(ResponseBody.self, from: data)
     }
 
+    /// 兼容纯文本片段和带 type 字段的 JSON 事件。
     private func parseChatEvent(_ raw: String) throws -> ChatStreamEvent? {
         guard let data = raw.data(using: .utf8),
-              let payload = try? JSONSerialization.jsonObject(with: data)
+              let payload = try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
         else {
             return .text(raw)
         }

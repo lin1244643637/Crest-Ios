@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 可在多个业务页面复用的全屏会话侧边栏。
 struct AppSidebar: View {
     @Binding var isPresented: Bool
     let username: String
@@ -12,6 +13,7 @@ struct AppSidebar: View {
     let onRefresh: () -> Void
     let onOpenSettings: () -> Void
 
+    /// 本地过滤已加载的标题，空搜索词直接返回完整列表。
     private var filteredSessions: [ChatSessionSummary] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sessions }
@@ -201,6 +203,7 @@ struct AppSidebar: View {
         }
     }
 
+    /// 固定在底部的毛玻璃账户栏，并延伸覆盖设备安全区。
     private func accountBar(bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
             Button {

@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 根据会话恢复结果切换启动加载、登录页和聊天主页。
 struct RootView: View {
     @EnvironmentObject private var session: SessionStore
 
@@ -12,11 +13,7 @@ struct RootView: View {
                         .tint(AppColors.secondaryText)
                 }
             } else if session.isSignedIn {
-                if session.tenantID == nil {
-                    PersonalAccountHomeView()
-                } else {
-                    ChatView()
-                }
+                ChatView()
             } else {
                 LoginView()
             }
@@ -27,70 +24,8 @@ struct RootView: View {
     }
 }
 
-private struct PersonalAccountHomeView: View {
-    @EnvironmentObject private var session: SessionStore
-    @State private var isSettingPassword = false
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                AppColors.background
-                    .ignoresSafeArea()
-
-                VStack(spacing: 10) {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 52))
-                        .foregroundStyle(AppColors.secondaryText)
-                    Text("个人空间")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppColors.primaryText)
-                    Text(session.username)
-                        .font(.subheadline)
-                        .foregroundStyle(AppColors.secondaryText)
-                }
-            }
-            .safeAreaInset(edge: .top) {
-                if !session.hasPassword {
-                    Button {
-                        isSettingPassword = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "lock.badge.plus")
-                            Text("完善密码")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .foregroundStyle(AppColors.primaryText)
-                        .padding(.horizontal, 16)
-                        .frame(height: 48)
-                        .background(AppColors.surface)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                }
-            }
-            .navigationTitle("Crest")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: session.signOut) {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                    }
-                    .accessibilityLabel("退出登录")
-                }
-            }
-        }
-        .sheet(isPresented: $isSettingPassword) {
-            InitialPasswordView()
-                .environmentObject(session)
-                .presentationDetents([.medium])
-        }
-    }
-}
-
-private struct InitialPasswordView: View {
+/// 为验证码注册且尚未设置密码的用户补充首次密码。
+struct InitialPasswordView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionStore
 

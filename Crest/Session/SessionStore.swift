@@ -1,6 +1,7 @@
 import Foundation
 
 @MainActor
+/// 管理登录状态、令牌刷新和需要鉴权的请求重试。
 final class SessionStore: ObservableObject {
     @Published private(set) var isSignedIn = false
     @Published private(set) var isRestoringSession: Bool
@@ -11,6 +12,7 @@ final class SessionStore: ObservableObject {
 
     private let api = APIClient()
     private let keychain = KeychainStore(service: "com.blackwave.crest")
+    // 访问令牌只保存在内存，刷新令牌由 KeychainStore 持久保存。
     private var accessToken: String?
     private var refreshTask: Task<LoginResponse, Error>?
     private var didAttemptRestore = false
@@ -57,6 +59,7 @@ final class SessionStore: ObservableObject {
         hasPassword = response.hasPassword
     }
 
+    /// 应用启动时使用 Keychain 中的刷新令牌恢复会话，仅尝试一次。
     func restoreSession() async {
         guard !didAttemptRestore else { return }
         didAttemptRestore = true
@@ -86,6 +89,7 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// 提供有效访问令牌；遇到 401 时刷新令牌并将原请求重试一次。
     func withAuthenticatedSession<Result>(
         _ operation: (String) async throws -> Result
     ) async throws -> Result {
@@ -155,6 +159,7 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// 复用正在执行的刷新任务，避免并发请求重复刷新同一会话。
     private func refreshResponse() async throws -> LoginResponse {
         if let refreshTask {
             return try await refreshTask.value
@@ -184,6 +189,7 @@ final class SessionStore: ObservableObject {
         isSignedIn = false
     }
 
+    /// JWT 距离过期不足六小时则提前刷新，解析失败时交由服务端 401 兜底。
     private func shouldRefreshAccessToken(_ token: String?) -> Bool {
         guard let token else { return false }
         let parts = token.split(separator: ".", omittingEmptySubsequences: false)
