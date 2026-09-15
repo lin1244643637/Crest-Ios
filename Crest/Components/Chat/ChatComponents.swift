@@ -20,31 +20,30 @@ struct ChatHeader: View {
             }
 
             HStack(spacing: 2) {
-                Button(action: onOpenSidebar) {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 18, weight: .medium))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("打开侧边栏")
+                SidebarOpenButton(action: onOpenSidebar)
 
                 Spacer()
 
                 Button(action: onNewConversation) {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 17, weight: .medium))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
+                .frame(width: 44, height: 44)
                 .accessibilityLabel("新对话")
+                .systemGlassCircleButton()
 
                 Button(action: onOpenSettings) {
                     Image(systemName: "person.crop.circle")
                         .font(.system(size: 20, weight: .regular))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
+                .frame(width: 44, height: 44)
                 .accessibilityLabel("账户")
+                .systemGlassCircleButton()
+
             }
         }
         .foregroundStyle(AppColors.primaryText)
@@ -180,7 +179,7 @@ struct ChatComposer: View {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .stroke(isFocused ? AppColors.secondaryText.opacity(0.8) : AppColors.border, lineWidth: 1)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 25)
             .padding(.top, 0)
             .padding(.bottom, 8)
         }

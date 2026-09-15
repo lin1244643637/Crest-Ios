@@ -3,40 +3,50 @@ import SwiftUI
 /// 可在多个业务页面复用的全屏会话侧边栏。
 struct AppSidebar: View {
     @Binding var isPresented: Bool
+    let dragTranslation: CGFloat
     let username: String
     let sessions: [ChatSessionSummary]
     let activeSessionID: String?
-    @Binding var searchText: String
     let isLoading: Bool
     let onNewConversation: () -> Void
+    let onOpenSearch: () -> Void
     let onSelectSession: (ChatSessionSummary) -> Void
     let onRefresh: () -> Void
     let onOpenSettings: () -> Void
 
-    /// 本地过滤已加载的标题，空搜索词直接返回完整列表。
-    private var filteredSessions: [ChatSessionSummary] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return sessions }
-        return sessions.filter { $0.title.localizedCaseInsensitiveContains(query) }
-    }
-
     var body: some View {
         GeometryReader { geometry in
+            let width = geometry.size.width
+            let restingOffset = isPresented ? 0 : -width
+            let horizontalOffset = min(0, max(-width, restingOffset + dragTranslation))
+            let presentationProgress = width > 0 ? 1 + horizontalOffset / width : 0
+            let uncoveredWidth = max(0, -horizontalOffset)
+
             ZStack(alignment: .leading) {
-                Color.black.opacity(isPresented ? 0.48 : 0)
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture(perform: close)
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+
+                    ZStack {
+                        BackdropBlur()
+                            .opacity(presentationProgress)
+                            .allowsHitTesting(false)
+
+                        Color.black.opacity(0.45 * presentationProgress)
+                            .contentShape(Rectangle())
+                            .onTapGesture(perform: close)
+                    }
+                    .frame(width: uncoveredWidth)
+                }
+                .ignoresSafeArea()
 
                 sidebarContent(bottomInset: geometry.safeAreaInsets.bottom)
-                    .frame(width: geometry.size.width)
+                    .frame(width: width)
                     .ignoresSafeArea(edges: .bottom)
-                    .offset(x: isPresented ? 0 : -geometry.size.width)
+                    .offset(x: horizontalOffset)
             }
         }
-        .allowsHitTesting(isPresented)
+        .allowsHitTesting(isPresented || dragTranslation > 0)
         .accessibilityHidden(!isPresented)
-        .animation(.easeInOut(duration: 0.28), value: isPresented)
     }
 
     private func sidebarContent(bottomInset: CGFloat) -> some View {
@@ -53,15 +63,20 @@ struct AppSidebar: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 14)
 
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(AppColors.secondaryText)
-                    TextField("搜索对话内容", text: $searchText)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                Button {
+                    onOpenSearch()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(AppColors.secondaryText)
+                        Text("搜索对话内容")
+                            .foregroundStyle(AppColors.secondaryText)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 52)
                 }
-                .padding(.horizontal, 16)
-                .frame(height: 52)
+                .buttonStyle(.plain)
 
                 HStack(spacing: 12) {
                     Image(systemName: "square.grid.2x2")
@@ -99,15 +114,15 @@ struct AppSidebar: View {
                             .tint(AppColors.secondaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 64)
-                    } else if filteredSessions.isEmpty {
-                        Text(searchText.isEmpty ? "暂无对话记录" : "没有匹配的对话")
+                    } else if sessions.isEmpty {
+                        Text("暂无对话记录")
                             .font(.subheadline)
                             .foregroundStyle(AppColors.secondaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 64)
                     } else {
                         LazyVStack(spacing: 2) {
-                            ForEach(filteredSessions) { item in
+                            ForEach(sessions) { item in
                                 Button {
                                     onSelectSession(item)
                                 } label: {
@@ -148,14 +163,6 @@ struct AppSidebar: View {
         .overlay(alignment: .bottom) {
             accountBar(bottomInset: bottomInset)
         }
-        .gesture(
-            DragGesture(minimumDistance: 20)
-                .onEnded { value in
-                    if value.translation.width < -50 {
-                        close()
-                    }
-                }
-        )
     }
 
     private var headerBar: some View {
@@ -180,26 +187,10 @@ struct AppSidebar: View {
         .padding(.top, 10)
         .padding(.bottom, 18)
         .background {
-            ZStack {
-                Rectangle()
-                    .fill(.regularMaterial)
-
-                AppColors.sidebarBackground
-                    .opacity(0.96)
-            }
+            BackdropBlur()
                 .ignoresSafeArea(edges: .top)
-                .mask {
-                    LinearGradient(
-                        stops: [
-                            .init(color: .black, location: 0),
-                            .init(color: .black, location: 0.78),
-                            .init(color: .black.opacity(0.76), location: 0.9),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                }
+                .clipped()
+                .allowsHitTesting(false)
         }
     }
 
@@ -253,6 +244,40 @@ struct AppSidebar: View {
     }
 
     private func close() {
-        isPresented = false
+        withAnimation(.easeIn(duration: 0.21)) {
+            isPresented = false
+        }
+    }
+}
+
+/// 聊天和搜索页面共用的系统侧边栏按钮。
+struct SidebarOpenButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(AppColors.primaryText)
+                .frame(width: 22, height: 22)
+        }
+        .frame(width: 44, height: 44)
+        .accessibilityLabel("打开侧边栏")
+        .systemGlassCircleButton()
+    }
+}
+
+extension View {
+    /// iOS 26 使用原生玻璃按钮，旧系统回退到原生描边圆形按钮。
+    @ViewBuilder
+    func systemGlassCircleButton() -> some View {
+        if #available(iOS 26.0, *) {
+            buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+        } else {
+            buttonStyle(.bordered)
+                .buttonBorderShape(.circle)
+                .tint(AppColors.primaryText)
+        }
     }
 }

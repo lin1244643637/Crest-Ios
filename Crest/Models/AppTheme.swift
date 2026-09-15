@@ -48,7 +48,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
 enum AppColors {
     static let background = adaptive(light: 0xFFFFFF, dark: 0x212121)
     static let sidebarBackground = adaptive(light: 0xF9F9F9, dark: 0x171717)
-    static let surface = adaptive(light: 0xF4F4F4, dark: 0x2F2F2F)
+    static let surface = adaptive(light: 0xFAFAFA, dark: 0x2F2F2F)
     static let primaryText = adaptive(light: 0x0D0D0D, dark: 0xECECEC)
     static let secondaryText = adaptive(light: 0x5D5D5D, dark: 0xB4B4B4)
     static let tertiaryText = adaptive(light: 0x8F8F8F, dark: 0x8F8F8F)

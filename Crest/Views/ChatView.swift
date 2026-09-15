@@ -4,6 +4,7 @@ import SwiftUI
 struct ChatView: View {
     @EnvironmentObject private var session: SessionStore
     @FocusState private var isComposerFocused: Bool
+    @FocusState private var isSearchFocused: Bool
 
     private let api = APIClient()
 
@@ -15,14 +16,18 @@ struct ChatView: View {
     @State private var activeSessionID: String?
     @State private var activeTitle = "新对话"
     @State private var history: [ChatSessionSummary] = []
-    @State private var historySearch = ""
     @State private var isLoadingHistory = false
     @State private var isLoadingConversation = false
     @State private var isSidebarOpen = false
+    @State private var sidebarDragTranslation: CGFloat = 0
+    @State private var isSearchPresented = false
     @State private var isSettingsPresented = false
     @State private var isSettingPassword = false
     @State private var presentedAlert: ChatAlert?
     @State private var chatTask: Task<Void, Never>?
+
+    private let sidebarEdgeWidth: CGFloat = 32
+    private let sidebarDistanceThreshold: CGFloat = 0.34
 
     private var suggestions: [ChatSuggestion] {
         if session.tenantID == nil {
@@ -40,10 +45,21 @@ struct ChatView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            chatContent
-            appSidebar
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                if isSearchPresented {
+                    searchContent
+                        .transition(.move(edge: .trailing))
+                } else {
+                    chatContent
+                        .transition(.move(edge: .leading))
+                }
+                appSidebar
+            }
+            .simultaneousGesture(sidebarDragGesture(drawerWidth: geometry.size.width))
         }
+        .animation(.easeInOut(duration: 0.28), value: isSearchPresented)
+        .sensoryFeedback(.impact(weight: .light), trigger: isSidebarOpen)
         .alert(item: $presentedAlert) { alert in
             Alert(
                 title: Text(alert.title),
@@ -129,18 +145,31 @@ struct ChatView: View {
     private var appSidebar: some View {
         AppSidebar(
             isPresented: $isSidebarOpen,
+            dragTranslation: sidebarDragTranslation,
             username: session.username,
             sessions: history,
             activeSessionID: activeSessionID,
-            searchText: $historySearch,
             isLoading: isLoadingHistory,
             onNewConversation: startNewConversation,
+            onOpenSearch: openSearch,
             onSelectSession: openConversation,
             onRefresh: {
                 Task { await loadHistory() }
             },
             onOpenSettings: openSettings
         )
+    }
+
+    private var searchContent: some View {
+        ConversationSearchView(
+            isSearchFocused: $isSearchFocused,
+            sessions: history,
+            activeSessionID: activeSessionID,
+            isLoading: isLoadingHistory,
+            onOpenSidebar: openSidebar
+        ) { item in
+            openConversation(item)
+        }
     }
 
     private var conversation: some View {
@@ -238,8 +267,9 @@ struct ChatView: View {
 
     private func startNewConversation() {
         chatTask?.cancel()
-        isComposerFocused = false
+        dismissInputFocus()
         withAnimation(.easeInOut(duration: 0.2)) {
+            isSearchPresented = false
             messages.removeAll()
             draft = ""
             isWaitingForService = false
@@ -251,21 +281,87 @@ struct ChatView: View {
     }
 
     private func openSidebar() {
-        isComposerFocused = false
-        withAnimation(.easeInOut(duration: 0.28)) {
+        dismissInputFocus()
+        withAnimation(sidebarOpenAnimation) {
             isSidebarOpen = true
+            sidebarDragTranslation = 0
         }
         Task { await loadHistory() }
     }
 
+    /// 关闭时仅响应左侧边缘右滑；展开后在侧栏任意位置左滑即可关闭。
+    private func sidebarDragGesture(drawerWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { value in
+                let horizontalDistance = value.translation.width
+                let verticalDistance = value.translation.height
+
+                guard abs(horizontalDistance) > abs(verticalDistance) else { return }
+
+                if isSidebarOpen {
+                    guard horizontalDistance < 0 else { return }
+                    sidebarDragTranslation = max(-drawerWidth, horizontalDistance)
+                } else {
+                    guard value.startLocation.x <= sidebarEdgeWidth,
+                          horizontalDistance > 0 else { return }
+                    dismissInputFocus()
+                    sidebarDragTranslation = min(drawerWidth, horizontalDistance)
+                }
+            }
+            .onEnded { value in
+                guard sidebarDragTranslation != 0 else { return }
+
+                let horizontalDistance = value.translation.width
+                let predictedHorizontalDistance = value.predictedEndTranslation.width
+                let distanceThreshold = drawerWidth * sidebarDistanceThreshold
+                let projectedThreshold = drawerWidth * 0.5
+
+                if isSidebarOpen {
+                    let shouldClose = -horizontalDistance >= distanceThreshold
+                        || -predictedHorizontalDistance >= projectedThreshold
+
+                    withAnimation(shouldClose ? sidebarCloseAnimation : sidebarOpenAnimation) {
+                        if shouldClose {
+                            isSidebarOpen = false
+                        }
+                        sidebarDragTranslation = 0
+                    }
+                    return
+                }
+
+                let shouldOpen = horizontalDistance >= distanceThreshold
+                    || predictedHorizontalDistance >= projectedThreshold
+
+                withAnimation(shouldOpen ? sidebarOpenAnimation : sidebarSnapBackAnimation) {
+                    if shouldOpen {
+                        isSidebarOpen = true
+                    }
+                    sidebarDragTranslation = 0
+                }
+
+                if shouldOpen {
+                    Task { await loadHistory() }
+                }
+            }
+    }
+
     private func closeSidebar() {
-        withAnimation(.easeInOut(duration: 0.28)) {
+        withAnimation(sidebarCloseAnimation) {
             isSidebarOpen = false
+            sidebarDragTranslation = 0
         }
     }
 
+    private func openSearch() {
+        dismissInputFocus()
+        withAnimation(.easeInOut(duration: 0.28)) {
+            isSearchPresented = true
+        }
+        closeSidebar()
+    }
+
     private func openSettings() {
-        isComposerFocused = false
+        dismissInputFocus()
         closeSidebar()
         isSettingsPresented = true
     }
@@ -295,12 +391,16 @@ struct ChatView: View {
     /// 等待侧边栏收起动画结束后加载所选历史会话。
     private func openConversation(_ item: ChatSessionSummary) {
         chatTask?.cancel()
+        let waitsForSidebar = isSidebarOpen
+        isSearchPresented = false
         closeSidebar()
-        isComposerFocused = false
+        dismissInputFocus()
 
         chatTask = Task {
             do {
-                try await Task.sleep(for: .milliseconds(280))
+                if waitsForSidebar {
+                    try await Task.sleep(for: .milliseconds(220))
+                }
                 isLoadingConversation = true
                 let detail = try await session.withAuthenticatedSession { token in
                     try await api.chatSessionDetail(
@@ -360,6 +460,23 @@ struct ChatView: View {
                 proxy.scrollTo(lastID, anchor: .bottom)
             }
         }
+    }
+
+    private func dismissInputFocus() {
+        isComposerFocused = false
+        isSearchFocused = false
+    }
+
+    private var sidebarOpenAnimation: Animation {
+        .spring(response: 0.28, dampingFraction: 0.84, blendDuration: 0)
+    }
+
+    private var sidebarCloseAnimation: Animation {
+        .easeIn(duration: 0.21)
+    }
+
+    private var sidebarSnapBackAnimation: Animation {
+        .spring(response: 0.24, dampingFraction: 0.86, blendDuration: 0)
     }
 }
 
