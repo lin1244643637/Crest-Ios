@@ -14,9 +14,8 @@ struct ChatHeader: View {
                 Text(title)
                     .font(.headline.weight(.semibold))
                     .lineLimit(1)
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(AppColors.secondaryText)
+                    .truncationMode(.tail)
+                    .frame(width: 160)
             }
 
             HStack(spacing: 2) {
@@ -207,7 +206,6 @@ private struct MessageRow: View {
             }
         case .assistant:
             HStack(alignment: .top, spacing: 12) {
-                CrestMark(size: 30)
                 if message.content.isEmpty, let loadingLabel {
                     HStack(spacing: 9) {
                         ProgressView()
@@ -220,10 +218,10 @@ private struct MessageRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 5)
                 } else {
-                    Text(message.content)
-                        .font(.body)
-                        .foregroundStyle(AppColors.primaryText)
-                        .textSelection(.enabled)
+                    MarkdownMessageView(
+                        content: message.content,
+                        isStreaming: loadingLabel != nil
+                    )
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }

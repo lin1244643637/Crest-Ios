@@ -24,6 +24,7 @@
 		00000000000000000000011E /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001E /* AppTheme.swift */; };
 		00000000000000000000011F /* BackdropBlur.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001F /* BackdropBlur.swift */; };
 		000000000000000000000122 /* ConversationSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000022 /* ConversationSearchView.swift */; };
+		000000000000000000000123 /* MarkdownMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000023 /* MarkdownMessageView.swift */; };
 		000000000000000000000120 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000020 /* Assets.xcassets */; };
 		000000000000000000000121 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000021 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -49,6 +50,7 @@
 		000000000000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		000000000000000000000021 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Content/Preview Assets.xcassets"; sourceTree = "<group>"; };
 		000000000000000000000022 /* ConversationSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSearchView.swift; sourceTree = "<group>"; };
+		000000000000000000000023 /* MarkdownMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownMessageView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -161,6 +163,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000019 /* ChatComponents.swift */,
+				000000000000000000000023 /* MarkdownMessageView.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -264,6 +267,7 @@
 				00000000000000000000011E /* AppTheme.swift in Sources */,
 				00000000000000000000011F /* BackdropBlur.swift in Sources */,
 				000000000000000000000122 /* ConversationSearchView.swift in Sources */,
+				000000000000000000000123 /* MarkdownMessageView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

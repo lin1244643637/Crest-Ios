@@ -18,12 +18,14 @@ struct AuthTopBar: View {
         HStack(spacing: 12) {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 22, height: 22)
             }
-            .buttonStyle(.bordered)
+            .frame(width: 44, height: 44)
             .accessibilityLabel("返回")
+            .systemGlassCircleButton()
+            .tint(.white)
 
             Spacer()
 

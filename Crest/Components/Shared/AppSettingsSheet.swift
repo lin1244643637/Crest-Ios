@@ -38,12 +38,14 @@ struct AppSettingsSheet: View {
 
                         Button(action: dismiss.callAsFunction) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .semibold))
-                                .frame(width: 44, height: 44)
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(.white)
+                                .frame(width: 22, height: 22)
                         }
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.circle)
+                        .frame(width: 44, height: 44)
                         .accessibilityLabel("关闭设置")
+                        .systemGlassProminentCircleButton()
+                        .tint(.blue)
                     }
 
                     VStack(spacing: 12) {

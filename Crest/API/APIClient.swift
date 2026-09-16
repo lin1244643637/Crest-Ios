@@ -200,7 +200,7 @@ enum APIError: LocalizedError {
 /// 认证接口客户端，统一处理地址、JSON 编解码和 HTTP 错误。
 struct APIClient {
 #if DEBUG
-    let baseURL = URL(string: "http://BlackWavedeMac-mini-2.local:8000")!
+    let baseURL = URL(string: "http://127.0.0.1:8000")!
 #else
     let baseURL = URL(string: "https://blackwave.org.cn/yuanji")!
 #endif

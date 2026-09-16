@@ -174,24 +174,18 @@ struct AppSidebar: View {
 
             Button(action: close) {
                 Image(systemName: "xmark")
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(AppColors.primaryText)
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 25, height: 25)
+                    .frame(width: 22, height: 22)
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.circle)
-            .tint(AppColors.primaryText)
+            .frame(width: 44, height: 44)
             .accessibilityLabel("关闭侧边栏")
+            .systemGlassCircleButton()
         }
         .padding(.horizontal, 18)
         .padding(.top, 10)
         .padding(.bottom, 18)
-        .background {
-            BackdropBlur()
-                .ignoresSafeArea(edges: .top)
-                .clipped()
-                .allowsHitTesting(false)
-        }
+        .background(AppColors.sidebarBackground)
     }
 
     /// 固定在底部的毛玻璃账户栏，并延伸覆盖设备安全区。
@@ -278,6 +272,18 @@ extension View {
             buttonStyle(.bordered)
                 .buttonBorderShape(.circle)
                 .tint(AppColors.primaryText)
+        }
+    }
+
+    /// 保留强调色填充的系统玻璃圆形按钮。
+    @ViewBuilder
+    func systemGlassProminentCircleButton() -> some View {
+        if #available(iOS 26.0, *) {
+            buttonStyle(.glassProminent)
+                .buttonBorderShape(.circle)
+        } else {
+            buttonStyle(.borderedProminent)
+                .buttonBorderShape(.circle)
         }
     }
 }

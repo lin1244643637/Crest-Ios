@@ -25,6 +25,8 @@ struct ChatView: View {
     @State private var isSettingPassword = false
     @State private var presentedAlert: ChatAlert?
     @State private var chatTask: Task<Void, Never>?
+    @State private var pendingStreamText = ""
+    @State private var streamFlushTask: Task<Void, Never>?
 
     private let sidebarEdgeWidth: CGFloat = 32
     private let sidebarDistanceThreshold: CGFloat = 0.34
@@ -72,6 +74,7 @@ struct ChatView: View {
         }
         .onDisappear {
             chatTask?.cancel()
+            cancelPendingStreamText()
         }
         .sheet(isPresented: $isSettingsPresented) {
             AppSettingsSheet(
@@ -92,7 +95,7 @@ struct ChatView: View {
     private var chatContent: some View {
         ZStack {
             ChatBackdrop()
-                .ignoresSafeArea()
+                .ignoresSafeArea(.container)
 
             VStack(spacing: 0) {
                 ChatHeader(
@@ -118,7 +121,7 @@ struct ChatView: View {
                                 .font(.caption.weight(.semibold))
                         }
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppColors.primaryText)
+                        .foregroundStyle(AppColors.chatSendButton)
                         .padding(.horizontal, 18)
                         .frame(height: 44)
                         .background(AppColors.surface)
@@ -130,15 +133,15 @@ struct ChatView: View {
                 }
 
                 conversation
+                    .frame(maxHeight: .infinity)
+
+                ChatComposer(
+                    draft: $draft,
+                    isFocused: $isComposerFocused,
+                    canSend: canSend,
+                    onSend: sendMessage
+                )
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            ChatComposer(
-                draft: $draft,
-                isFocused: $isComposerFocused,
-                canSend: canSend,
-                onSend: sendMessage
-            )
         }
     }
 
@@ -197,18 +200,22 @@ struct ChatView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 18)
-            .padding(.top, 22)
-            .padding(.bottom, 8)
+            .padding(.bottom, 12)
             .scrollDismissesKeyboard(.interactively)
             .contentShape(Rectangle())
             .onTapGesture {
                 isComposerFocused = false
             }
             .onChange(of: messages.last?.content) { _, _ in
-                scrollToBottom(with: proxy)
+                scrollToBottom(with: proxy, animated: false)
             }
             .onChange(of: isWaitingForService) { _, _ in
                 scrollToBottom(with: proxy)
+            }
+            .onChange(of: isComposerFocused) { _, isFocused in
+                if isFocused {
+                    scrollToBottom(with: proxy)
+                }
             }
         }
     }
@@ -238,6 +245,7 @@ struct ChatView: View {
         isComposerFocused = false
 
         chatTask?.cancel()
+        cancelPendingStreamText()
         chatTask = Task {
             do {
                 try await session.withAuthenticatedSession { token in
@@ -267,6 +275,7 @@ struct ChatView: View {
 
     private func startNewConversation() {
         chatTask?.cancel()
+        cancelPendingStreamText()
         dismissInputFocus()
         withAnimation(.easeInOut(duration: 0.2)) {
             isSearchPresented = false
@@ -391,6 +400,7 @@ struct ChatView: View {
     /// 等待侧边栏收起动画结束后加载所选历史会话。
     private func openConversation(_ item: ChatSessionSummary) {
         chatTask?.cancel()
+        cancelPendingStreamText()
         let waitsForSidebar = isSidebarOpen
         isSearchPresented = false
         closeSidebar()
@@ -429,8 +439,17 @@ struct ChatView: View {
     private func apply(_ event: ChatStreamEvent, to messageID: String) {
         switch event {
         case .text(let text):
-            guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
-            messages[index].content += text
+            pendingStreamText += text
+            guard streamFlushTask == nil else { return }
+
+            streamFlushTask = Task { @MainActor in
+                do {
+                    try await Task.sleep(for: .milliseconds(50))
+                } catch {
+                    return
+                }
+                flushPendingStreamText(to: messageID)
+            }
         case .metadata(let serverSessionID):
             if let serverSessionID, !serverSessionID.isEmpty {
                 activeSessionID = serverSessionID
@@ -443,6 +462,10 @@ struct ChatView: View {
     }
 
     private func finishStreamingMessage(_ messageID: String) {
+        streamFlushTask?.cancel()
+        streamFlushTask = nil
+        flushPendingStreamText(to: messageID)
+
         if let index = messages.firstIndex(where: { $0.id == messageID }),
            messages[index].content.isEmpty {
             messages.remove(at: index)
@@ -453,10 +476,30 @@ struct ChatView: View {
         }
     }
 
-    private func scrollToBottom(with proxy: ScrollViewProxy) {
+    private func flushPendingStreamText(to messageID: String) {
+        let text = pendingStreamText
+        pendingStreamText = ""
+        streamFlushTask = nil
+
+        guard !text.isEmpty,
+              let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        messages[index].content += text
+    }
+
+    private func cancelPendingStreamText() {
+        streamFlushTask?.cancel()
+        streamFlushTask = nil
+        pendingStreamText = ""
+    }
+
+    private func scrollToBottom(with proxy: ScrollViewProxy, animated: Bool = true) {
         guard let lastID = messages.last?.id else { return }
         DispatchQueue.main.async {
-            withAnimation(.easeOut(duration: 0.22)) {
+            if animated {
+                withAnimation(.easeOut(duration: 0.22)) {
+                    proxy.scrollTo(lastID, anchor: .bottom)
+                }
+            } else {
                 proxy.scrollTo(lastID, anchor: .bottom)
             }
         }
